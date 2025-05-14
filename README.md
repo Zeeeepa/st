@@ -56,7 +56,7 @@ SwarmStack is a comprehensive AI-powered framework for code development, analysi
            │                                 │
            │  super-linter  putout  tsup    │
            │  pkg.pr.new    weave   biome   │
-           │  CodegenSDK                     │
+           │  CodegenSDK  AutoHeal           │
            └─────────────────────────────────┘
 ```
 
@@ -122,6 +122,7 @@ SwarmStack is a comprehensive AI-powered framework for code development, analysi
 ## 🛠️ Support Tools
 
 ### Code Analysis & Transformation
+    [dion-/autoheal](https://github.com/dion-/autoheal/tree/master)
 - **[super-linter](https://github.com/Zeeeepa/super-linter)**: Comprehensive multi-language linting
 - **[putout](https://github.com/Zeeeepa/putout)**: JavaScript/TypeScript code transformation
 - **[biome](https://biomejs.dev/)**: High-performance formatter and linter
