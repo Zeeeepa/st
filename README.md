@@ -38,6 +38,10 @@ Based on your vision, I've analyzed how these components can work together in an
            │  pkg.pr.new    weave   biome   │
            │         CodegenSDK              │
            └─────────────────────────────────┘
+
+1. @samanhappy/mcphub: A web-based platform with UI dashboard that aggregates multiple MCP servers into unified HTTP/SSE endpoints
+2 mcpm.sh: A CLI package manager for discovering, installing, and managing MCP server configurations across different clients
+
 :arrows_anticlockwise: Component Integration Details
 1. Motia as Core Interface
 Role: Central workflow designer and orchestrator
