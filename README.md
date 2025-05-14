@@ -36,7 +36,7 @@ Based on your vision, I've analyzed how these components can work together in an
            │                                 │
            │  super-linter  putout  tsup    │
            │  pkg.pr.new    weave   biome   │
-           │                                 │
+           │         CodegenSDK              │
            └─────────────────────────────────┘
 :arrows_anticlockwise: Component Integration Details
 1. Motia as Core Interface
@@ -80,7 +80,7 @@ Leverage eko's internet research capabilities for gathering best practices
 
 
 
-
+ CodegenSDK- static code analysis & PR code context comparison/analysis/error function listing/viewing.
 :spanner: Supplementary Tools Integration
 Code Analysis & Transformation
 super-linter: Integrate as a Motia node for comprehensive code quality checks
