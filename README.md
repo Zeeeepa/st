@@ -60,6 +60,8 @@ SwarmStack is a comprehensive AI-powered framework for code development, analysi
            └─────────────────────────────────┘
 ```
 
+
+
 ## 🧩 Core Components
 
 ### 1. [Motia](https://github.com/Zeeeepa/motia) - Central Interface
@@ -144,6 +146,7 @@ SwarmStack is a comprehensive AI-powered framework for code development, analysi
 | **[mcphub](https://www.npmjs.com/package/@samanhappy/mcphub)** | Central repository for MCP components | - Web-based platform with UI dashboard<br>- Aggregates multiple MCP servers<br>- Unified HTTP/SSE endpoints |
 | **[mcpm.sh](https://github.com/pathintegral-institute/mcpm.sh)** | CLI package manager for MCP | - Discovering and installing MCP servers<br>- Managing configurations<br>- Cross-client compatibility |
 
+https://github.com/mahm/softwaredesign-llm-application/blob/main/21/src/content_creator/agent.py#L93  -- Comprehensive discovery of mcp servers.
 ## 🚀 Deployment Guide
 
 ### Prerequisites
