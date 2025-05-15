@@ -21,18 +21,18 @@ SwarmStack is a comprehensive AI-powered framework for code development, analysi
 ## 🏗️ Architecture
 
 ```
-                      ┌─────────────────┐
-                      │                 │
-                      │  Motia (Core)   │
+                      ┌───────────────┐
+                      │               │
+                      │  Motia (Core) │
                       │  Visual Workflow │
-                      │                 │
-                      └────────┬────────┘
+                      │               │
+                      └─────────┬─────┘
                                │
            ┌──────────────────┼──────────────────┐
            │                  │                  │
-┌──────────▼─────────┐ ┌──────▼───────┐ ┌────────▼────────┐
+┌──────────▼─────────┐ ┌──────▼───────┐ ┌────────▼─────────┐
 │                    │ │              │ │                 │
-│ aigne-framework    │ │ serv         │ │ claude-task-    │
+│ aigne-framework    │ │ serv         │ ￿￿ claude-task-    │
 │ (MCP Flow Engine)  │ │ (Orchestrator)│ │ master (Tasks) │
 │                    │ │              │ │                 │
 └──────────┬─────────┘ └──────┬───────┘ └────────┬────────┘
@@ -44,7 +44,7 @@ SwarmStack is a comprehensive AI-powered framework for code development, analysi
            │         │                │          │
            │         └────────────────┘          │
            │                                     │
-┌──────────▼─────────┐                 ┌─────────▼───────┐
+┌──────────▼─────────┐                 ┌─────────▼─────￿￿─┐
 │                    │                 │                 │
 │       eko          │                 │  agent-swarm-kit│
 │ (NL Processing)    │                 │  (Agent Collab) │
@@ -56,7 +56,8 @@ SwarmStack is a comprehensive AI-powered framework for code development, analysi
            │                                 │
            │  super-linter  putout  tsup    │
            │  pkg.pr.new    weave   biome   │
-           │  CodegenSDK  AutoHeal           │
+           │  CodegenSDK  AutoHeal  PostHog │
+           │  Sentry      Langfuse          │
            └─────────────────────────────────┘
 ```
 
@@ -134,8 +135,40 @@ SwarmStack is a comprehensive AI-powered framework for code development, analysi
 - **[tsup](https://github.com/Zeeeepa/tsup)**: Efficient TypeScript bundling
 - **[pkg.pr.new](https://github.com/Zeeeepa/pkg.pr.new)**: Continuous preview releases
 
-### Visualization & Monitoring
+### Monitoring & Observability
+- **[PostHog](https://posthog.com/docs/ai-engineering)**: LLM observability and analytics
+  - Track LLM execution flow and performance
+  - Capture prompts, responses, and intermediate steps
+  - Visualize relationships between components
+  - Custom event tracking for code execution context
+  - Integration with Langfuse for enhanced tracing
+
+- **[Sentry](https://sentry.io/for/llm-monitoring/)**: Error tracking and performance monitoring
+  - Detailed error context for LLM applications
+  - Performance monitoring by AI pipeline
+  - Trace slowdowns to specific sequences of events
+  - Code relationship mapping for error propagation
+  - Automatic token cost and usage calculation
+
+### Visualization & Workflow
 - **[weave](https://github.com/Zeeeepa/weave)**: Workflow visualization and monitoring
+- **[Langfuse](https://langfuse.com/)**: Open-source LLM observability platform
+
+## Weave vs Langfuse Comparison
+
+| Feature | Weave | Langfuse |
+|---------|-------|----------|
+| **Type** | Part of Weights & Biases ecosystem | Standalone open-source platform |
+| **Focus** | Experiment tracking and visualization | LLM observability and evaluation |
+| **Integration** | Tightly integrated with W&B tools | Flexible integration with various frameworks |
+| **Tracing** | Comprehensive tracing capabilities | Specialized for LLM tracing with nested spans |
+| **Evaluation** | Strong evaluation framework | Built-in evaluation framework with scoring |
+| **Prompt Management** | Basic prompt versioning | Advanced prompt management and versioning |
+| **Self-hosting** | Limited self-hosting options | Easy self-hosting with extensive documentation |
+| **Community** | Part of W&B ecosystem | Growing open-source community (most used OSS LLMOps) |
+| **Best for** | Teams already using W&B ecosystem | Teams needing a dedicated LLM observability solution |
+
+**Recommendation**: Langfuse is generally more effective for dedicated LLM observability and tracing, especially for teams that need a specialized, open-source solution with strong community support. Weave is better for teams already invested in the Weights & Biases ecosystem who want integrated experiment tracking across ML and LLM workflows.
 
 ## 🌐 MCP Server Infrastructure
 
@@ -213,7 +246,7 @@ export const createTaskPlannerNode = (config) => {
 };
 ```
 
-### Step 4: Set Up CI/CD Pipeline
+### Step 4: Set Up CI/CD Pipeline with Monitoring
 
 Create a GitHub Actions workflow file:
 
@@ -253,9 +286,15 @@ jobs:
       
       - name: Create preview release
         run: npx pkg-pr-new publish
+      
+      # Set up monitoring with Sentry and PostHog
+      - name: Configure monitoring
+        run: |
+          npm install @sentry/node @sentry/tracing posthog-node
+          # Additional setup steps for monitoring
 ```
 
-### Step 5: Configure Workflow in Motia
+### Step 5: Configure Workflow in Motia with Monitoring
 
 Create a workflow configuration file:
 
@@ -301,18 +340,107 @@ Create a workflow configuration file:
       "config": {
         "compact": true
       }
+    },
+    {
+      "id": "monitoring",
+      "type": "monitoring",
+      "config": {
+        "sentry": {
+          "enabled": true,
+          "dsn": "${SENTRY_DSN}",
+          "tracesSampleRate": 1.0,
+          "allowDefaultPii": true
+        },
+        "posthog": {
+          "enabled": true,
+          "apiKey": "${POSTHOG_API_KEY}",
+          "host": "https://app.posthog.com"
+        }
+      }
     }
   ],
   "connections": [
     { "source": "code-checkout", "target": "code-analysis" },
     { "source": "code-analysis", "target": "code-transform" },
     { "source": "code-transform", "target": "build" },
-    { "source": "build", "target": "deploy" }
+    { "source": "build", "target": "deploy" },
+    { "source": "deploy", "target": "monitoring" }
   ]
 }
 ```
 
-### Step 6: Run the System
+### Step 6: Set Up Monitoring with PostHog and Sentry
+
+```javascript
+// monitoring-setup.js
+const Sentry = require('@sentry/node');
+const { ProfilingIntegration } = require('@sentry/profiling-node');
+const { PostHog } = require('posthog-node');
+
+// Initialize Sentry for LLM monitoring
+Sentry.init({
+  dsn: process.env.SENTRY_DSN,
+  integrations: [
+    new ProfilingIntegration(),
+  ],
+  tracesSampleRate: 1.0,
+  allowDefaultPii: true, // To send prompts to Sentry
+});
+
+// Initialize PostHog for LLM analytics
+const posthog = new PostHog(
+  process.env.POSTHOG_API_KEY,
+  { host: 'https://app.posthog.com' }
+);
+
+// Example of tracking LLM execution with both tools
+function trackLLMExecution(prompt, model, context) {
+  // Track with PostHog
+  posthog.capture({
+    distinctId: context.sessionId,
+    event: 'llm_execution_started',
+    properties: {
+      prompt: prompt,
+      model: model,
+      context_files: context.files,
+      dependencies: context.dependencies
+    }
+  });
+  
+  // Use Sentry's AI tracking
+  try {
+    // Your LLM execution code here
+    const result = executeLLM(prompt, model, context);
+    
+    // Track successful execution
+    posthog.capture({
+      distinctId: context.sessionId,
+      event: 'llm_execution_completed',
+      properties: {
+        execution_time: result.executionTime,
+        token_usage: result.tokenUsage,
+        model: model
+      }
+    });
+    
+    return result;
+  } catch (error) {
+    // Sentry will automatically capture this error
+    Sentry.captureException(error, {
+      tags: {
+        model: model,
+        context_type: context.type
+      },
+      extra: {
+        prompt: prompt
+      }
+    });
+    throw error;
+  }
+}
+```
+
+### Step 7: Run the System
 
 ```bash
 # Start the Motia server
@@ -346,7 +474,8 @@ npm run dev
    - Stakeholders review the preview
 
 6. **Monitoring & Feedback**:
-   - weave visualizes the entire process
+   - PostHog and Sentry track LLM performance and errors
+   - weave or Langfuse visualizes the entire process
    - agent-swarm-kit agents collaborate to analyze results
 
 ## 📊 Advanced MCP Server Configuration
@@ -395,6 +524,7 @@ module.exports = {
 - Use checkpoints and rollbacks for all code-modifying operations
 - Validate all generated code before execution
 - Implement rate limiting for API calls
+- Ensure proper data handling for sensitive information in PostHog and Sentry
 
 ## 📚 Documentation
 
@@ -407,6 +537,8 @@ For detailed documentation on each component, please refer to their respective r
 - [anon-kode Documentation](https://github.com/Zeeeepa/anon-kode)
 - [eko Documentation](https://github.com/Zeeeepa/eko)
 - [agent-swarm-kit Documentation](https://github.com/Zeeeepa/agent-swarm-kit)
+- [PostHog LLM Documentation](https://posthog.com/docs/ai-engineering)
+- [Sentry LLM Monitoring](https://sentry.io/for/llm-monitoring/)
 
 ## 🤝 Contributing
 
