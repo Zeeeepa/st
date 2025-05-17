@@ -151,24 +151,22 @@ SwarmStack is a comprehensive AI-powered framework for code development, analysi
   - Automatic token cost and usage calculation
 
 ### Visualization & Workflow
-- **[weave](https://github.com/Zeeeepa/weave)**: Workflow visualization and monitoring
 - **[Langfuse](https://langfuse.com/)**: Open-source LLM observability platform
 
 ## Weave vs Langfuse Comparison
 
-| Feature | Weave | Langfuse |
+|  Langfuse |
 |---------|-------|----------|
-| **Type** | Part of Weights & Biases ecosystem | Standalone open-source platform |
-| **Focus** | Experiment tracking and visualization | LLM observability and evaluation |
-| **Integration** | Tightly integrated with W&B tools | Flexible integration with various frameworks |
-| **Tracing** | Comprehensive tracing capabilities | Specialized for LLM tracing with nested spans |
-| **Evaluation** | Strong evaluation framework | Built-in evaluation framework with scoring |
-| **Prompt Management** | Basic prompt versioning | Advanced prompt management and versioning |
-| **Self-hosting** | Limited self-hosting options | Easy self-hosting with extensive documentation |
-| **Community** | Part of W&B ecosystem | Growing open-source community (most used OSS LLMOps) |
-| **Best for** | Teams already using W&B ecosystem | Teams needing a dedicated LLM observability solution |
+ Standalone open-source platform |
+LM observability and evaluation |
+| Flexible integration with various frameworks |
+Specialized for LLM tracing with nested spans |
+| Built-in evaluation framework with scoring |
+| Advanced prompt management and versioning |
+Easy self-hosting with extensive documentation |
+| Growing open-source community (most used OSS LLMOps) |
+ Teams needing a dedicated LLM observability solution |
 
-**Recommendation**: Langfuse is generally more effective for dedicated LLM observability and tracing, especially for teams that need a specialized, open-source solution with strong community support. Weave is better for teams already invested in the Weights & Biases ecosystem who want integrated experiment tracking across ML and LLM workflows.
 
 ## 🌐 MCP Server Infrastructure
 
