@@ -22,7 +22,7 @@ SwarmStack is a comprehensive AI-powered framework for code development, analysi
 
 ```
                       ┌───────────────┐
-                      │               │
+                      │Temporal BACK-end│
                       │  Motia (Core) │
                       │  Visual Workflow │
                       │               │
