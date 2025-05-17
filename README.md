@@ -60,12 +60,21 @@ SwarmStack is a comprehensive AI-powered framework for code development, analysi
            │  Sentry      Langfuse          │
            └─────────────────────────────────┘
 ```
-
-
-
 ## 🧩 Core Components
+### 1 Temporal as a local stack 
+  - would serve as your core workflow engine with:
+  - Durable execution ensuring workflows survive failures and can be resumed
+  - Workflow versioning for running parallel systems
+  - Built-in monitoring of workflow states
+  - SDK integration with your existing stack
+  - Temporal could be integrated with your existing Motia visual interface, extending Motia to handle:
+  - System on/off controls
+  - Parallel workflow instances
+  - Component state visualization
+  - Workflow definition and execution
 
-### 1. [Motia](https://github.com/Zeeeepa/motia) - Central Interface
+
+### 2. [Motia](https://github.com/Zeeeepa/motia) - Central Interface
 - **Purpose**: Visual workflow designer and orchestration hub
 - **Features**:
   - Multi-language support (TypeScript, Python, Ruby)
@@ -73,7 +82,7 @@ SwarmStack is a comprehensive AI-powered framework for code development, analysi
   - Real-time execution visualization
   - Event-driven architecture
 
-### 2. [aigne-framework](https://github.com/Zeeeepa/aigne-framework) - MCP Flow Engine
+### 3. [aigne-framework](https://github.com/Zeeeepa/aigne-framework) - MCP Flow Engine
 - **Purpose**: Handles complex MCP flows and expanded feature execution
 - **Features**:
   - Functional programming approach
@@ -81,7 +90,7 @@ SwarmStack is a comprehensive AI-powered framework for code development, analysi
   - TypeScript support with comprehensive type definitions
   - Seamless MCP protocol integration
 
-### 3. [serv](https://github.com/Zeeeepa/serv) - Orchestration Layer
+### 4. [serv](https://github.com/Zeeeepa/serv) - Orchestration Layer
 - **Purpose**: High-level orchestration with safety mechanisms
 - **Features**:
   - Checkpoint system for safe operations
@@ -89,7 +98,7 @@ SwarmStack is a comprehensive AI-powered framework for code development, analysi
   - Context window management for large codebases
   - Execution variety and tool calling
 
-### 4. [claude-task-master](https://github.com/Zeeeepa/claude-task-master) - Task Planning
+### 5. [claude-task-master](https://github.com/Zeeeepa/claude-task-master) - Task Planning
 - **Purpose**: AI-powered task management via MCP
 - **Features**:
   - Task breakdown and prioritization
@@ -97,7 +106,7 @@ SwarmStack is a comprehensive AI-powered framework for code development, analysi
   - Integration with AI assistants
   - MCP-based communication
 
-### 5. [anon-kode](https://github.com/Zeeeepa/anon-kode) - Code Generation
+### 6. [anon-kode](https://github.com/Zeeeepa/anon-kode) - Code Generation
 - **Purpose**: Terminal-based AI coding tool
 - **Features**:
   - Compatible with any OpenAI-style API
@@ -105,7 +114,7 @@ SwarmStack is a comprehensive AI-powered framework for code development, analysi
   - MCP server capabilities
   - Test execution and shell command support
 
-### 6. [eko](https://github.com/Zeeeepa/eko) - Natural Language Processing
+### 7 [eko](https://github.com/Zeeeepa/eko) - Natural Language Processing
 - **Purpose**: Process natural language requests and conduct research
 - **Features**:
   - Internet research capabilities
@@ -113,7 +122,7 @@ SwarmStack is a comprehensive AI-powered framework for code development, analysi
   - Browser automation
   - Production-ready agentic workflow
 
-### 7. [agent-swarm-kit](https://github.com/Zeeeepa/agent-swarm-kit) - Agent Collaboration
+### 8. [agent-swarm-kit](https://github.com/Zeeeepa/agent-swarm-kit) - Agent Collaboration
 - **Purpose**: Enable collaboration between specialized AI agents
 - **Features**:
   - Conversation testbed for agent interaction simulation
