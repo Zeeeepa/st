@@ -46,6 +46,7 @@ chmod +x component_name_inst.sh
 | Motia | Central Interface | `motia_inst.sh` |
 | aigne-framework | MCP Flow Engine | `aigne-framework_inst.sh` |
 | serv | Orchestration Layer | `serv_inst.sh` |
+| serena | Semantic Retrieval and Editing Agent | `serena_inst.sh` |
 | claude-task-master | Task Planning | `claude-task-master_inst.sh` |
 | anon-kode | Code Generation | `anon-kode_inst.sh` |
 | eko | Natural Language Processing | `eko_inst.sh` |
@@ -69,6 +70,7 @@ $HOME/ai-stack/
 ├── motia/
 ├── aigne-framework/
 ├── serv/
+├── serena/
 ├── claude-task-master/
 ├── anon-kode/
 ├── eko/
@@ -100,4 +102,3 @@ If you encounter issues during installation:
 - Sufficient disk space (~10GB for all components)
 - Node.js 16+ (will be installed if not present)
 - Docker (for Temporal and super-linter, will be installed if not present)
-

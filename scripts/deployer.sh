@@ -18,6 +18,7 @@ declare -a COMPONENTS=(
     "motia"
     "aigne-framework"
     "serv"
+    "serena"
     "claude-task-master"
     "anon-kode"
     "eko"
@@ -56,21 +57,28 @@ print_component_description() {
             ;;
         "motia")
             echo -e "${CYAN}Motia - Central Interface${NC}"
-            echo "  Visual workflow designer and orchestration hub"
-            echo "  Multi-language support (TypeScript, Python, Ruby)"
-            echo "  Visual node-based workflow editor"
+            echo "  Unified interface for all components"
+            echo "  Extensible plugin system"
+            echo "  Real-time monitoring dashboard"
             ;;
         "aigne-framework")
             echo -e "${CYAN}aigne-framework - MCP Flow Engine${NC}"
-            echo "  Handles complex MCP flows and expanded feature execution"
-            echo "  Multiple workflow patterns"
-            echo "  Seamless MCP protocol integration"
+            echo "  Workflow orchestration for AI agents"
+            echo "  Modular component architecture"
+            echo "  Extensible plugin system"
             ;;
         "serv")
             echo -e "${CYAN}serv - Orchestration Layer${NC}"
             echo "  High-level orchestration with safety mechanisms"
             echo "  Checkpoint system for safe operations"
             echo "  Rollback management for error recovery"
+            ;;
+        "serena")
+            echo -e "${CYAN}serena - Semantic Retrieval and Editing Agent${NC}"
+            echo "  Powerful coding agent toolkit"
+            echo "  Semantic code retrieval capabilities"
+            echo "  Precise code editing functionality"
+            echo "  MCP server & Agno integration"
             ;;
         "claude-task-master")
             echo -e "${CYAN}claude-task-master - Task Planning${NC}"
@@ -292,4 +300,3 @@ while true; do
             ;;
     esac
 done
-
