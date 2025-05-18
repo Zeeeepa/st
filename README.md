@@ -60,18 +60,7 @@ SwarmStack is a comprehensive AI-powered framework for code development, analysi
            │  Sentry      Langfuse          │
            └─────────────────────────────────┘
 ```
-## 🧩 Core Components
-### 1 Temporal as a local stack 
-  - would serve as your core workflow engine with:
-  - Durable execution ensuring workflows survive failures and can be resumed
-  - Workflow versioning for running parallel systems
-  - Built-in monitoring of workflow states
-  - SDK integration with your existing stack
-  - Temporal could be integrated with your existing Motia visual interface, extending Motia to handle:
-  - System on/off controls
-  - Parallel workflow instances
-  - Component state visualization
-  - Workflow definition and execution
+### 2.  prefect
 
 
 ### 2. [Motia](https://github.com/Zeeeepa/motia) - Central Interface
