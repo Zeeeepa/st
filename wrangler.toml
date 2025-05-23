@@ -1,0 +1,67 @@
+name = "webhook-gateway"  
+main = "src/worker.js"  
+compatibility_date = "2024-01-01"  
+compatibility_flags = ["nodejs_compat"]
+
+account_id = "2b2a1d3effa7f7fe4fe2a8c4e48681e3"
+
+routes = [
+  { pattern = "webhook-gateway.pixeliumperfecto.workers.dev/*", zone_name = "pixeliumperfecto.workers.dev" }
+]
+
+[triggers]
+crons = [
+  "*/5 * * * *",  # Every 5 minutes - process batch queue
+  "0 * * * *",    # Every hour - retry failed events
+  "0 0 * * *"     # Daily at midnight - archive old events
+]
+
+[vars]
+SUPABASE_URL = "https://uedotecntvufyjrjrgbk.supabase.co"
+SUPABASE_SERVICE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVlZG90ZWNudHZ1ZnlqcmpyZ2JrIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc0NTM1MDM2NCwiZXhwIjoyMDYwOTI2MzY0fQ.sndaOWhHu4l_HEnuFM3SACzUfRNbZLNS_kl7veOGEL0"
+CLOUDFLARE_API_TOKEN = "eae82cf159577a8838cc83612104c09c5a0d6"
+CLOUDFLARE_ACCOUNT_ID = "2b2a1d3effa7f7fe4fe2a8c4e48681e3"
+CLOUDFLARE_WORKER_NAME = "webhook-gateway"
+CLOUDFLARE_WORKER_URL = "https://webhook-gateway.pixeliumperfecto.workers.dev"
+DEBUG = "false"
+ENABLE_BATCHING = "true"
+ENABLE_METRICS = "true"
+ENABLE_RETRY = "true"
+BATCH_SIZE = "50"
+BATCH_INTERVAL = "5000"
+MAX_RETRIES = "3"
+RETRY_DELAY = "500"
+RATE_LIMIT_WINDOW = "60000"
+RATE_LIMIT_MAX_REQUESTS = "100"
+DATA_RETENTION_DAYS = "90"
+WORKER_ID = "webhook-gateway-prod"
+WORKER_ENVIRONMENT = "production"
+
+[env.development]
+name = "webhook-gateway-dev"
+
+[env.development.vars]
+DEBUG = "true"
+WORKER_ENVIRONMENT = "development"
+WORKER_ID = "webhook-gateway-dev"
+
+[env.staging]
+name = "webhook-gateway-staging"
+
+[env.staging.vars]
+DEBUG = "true"
+WORKER_ENVIRONMENT = "staging"
+WORKER_ID = "webhook-gateway-staging"
+RATE_LIMIT_MAX_REQUESTS = "200"
+
+# Rules for ES modules
+[[rules]]
+type = "ESModule"
+globs = ["**/*.js"]
+
+[observability]
+enabled = true
+
+[limits]
+cpu_ms = 50
+script_size = 5
