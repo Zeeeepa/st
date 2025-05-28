@@ -6,22 +6,21 @@
   "type": "module",
   "scripts": {
     "start": "node src/server.js",
+    "test": "echo \"Error: no test specified\" && exit 1",
     "dev": "node scripts/enhanced-ultra-deployment.js",
-    "dev:ultra": "node scripts/ultra-comprehensive-deployment.js",
-    "dev:comprehensive": "node scripts/comprehensive-dev-setup.js",
-    "dev:force": "node scripts/force-run-comprehensive.js",
+    "dev:simple": "node scripts/simple-dev-setup.js",
     "dev:bulletproof": "node scripts/bulletproof-dev-setup.js",
     "dev:diagnostic": "node scripts/simple-diagnostic.js",
     "dev:coverage": "node scripts/deployment-coverage-analysis.js",
     "setup:fresh": "node scripts/fresh-postgres-setup.js",
     "start:simple": "node scripts/simple-start.js",
+    "start:enhanced": "node scripts/enhanced-start.js",
     "setup:db": "node scripts/setup-database.js",
     "setup:db:interactive": "node scripts/interactive-database-setup.js",
     "setup:db:fix": "node scripts/fix-database-auth.js",
     "setup:webhooks": "node scripts/setup-webhooks.js",
     "health:check": "node scripts/health-check.js",
-    "diagnose:linear": "node scripts/diagnose-linear.js",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "diagnose:linear": "node scripts/diagnose-linear.js"
   },
   "dependencies": {
     "express": "^4.18.2",
