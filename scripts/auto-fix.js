@@ -263,7 +263,13 @@ WORKER_ENVIRONMENT=development`;
         const envPath = path.join(__dirname, '..', '.env');
         if (fs.existsSync(envPath)) {
           let envContent = fs.readFileSync(envPath, 'utf8');
-          envContent = envContent.replace(/DB_PORT=\d+/, `DB_PORT=${detectedPort}`);
+          // Replace any existing DB_PORT setting
+          if (envContent.includes('DB_PORT=')) {
+            envContent = envContent.replace(/DB_PORT=\d+/, `DB_PORT=${detectedPort}`);
+          } else {
+            // Add DB_PORT if it doesn't exist
+            envContent += `\nDB_PORT=${detectedPort}`;
+          }
           fs.writeFileSync(envPath, envContent);
           
           this.log(`Updated DB_PORT to ${detectedPort} in .env file`, 'success');
@@ -390,17 +396,25 @@ WORKER_ENVIRONMENT=development`;
     // Check PostgreSQL port configuration
     if (fs.existsSync(envPath)) {
       const envContent = fs.readFileSync(envPath, 'utf8');
-      if (envContent.includes('DB_PORT=10000')) {
-        // Check if PostgreSQL is actually running on 5432
+      const portMatch = envContent.match(/DB_PORT=(\d+)/);
+      if (portMatch) {
+        const configuredPort = parseInt(portMatch[1]);
+        
+        // Check if PostgreSQL is actually running on a different port
         try {
           if (process.platform === 'win32') {
             const { stdout } = await this.runCommand('netstat -an | findstr :5432', { silent: true });
-            if (stdout.includes('5432')) {
+            if (stdout.includes('5432') && configuredPort !== 5432) {
+              issues.push('wrongDatabasePort');
+            }
+          } else {
+            const { stdout } = await this.runCommand('netstat -an | grep :5432', { silent: true });
+            if (stdout.includes('5432') && configuredPort !== 5432) {
               issues.push('wrongDatabasePort');
             }
           }
         } catch (error) {
-          // Port check failed
+          // Port check failed, but that's okay
         }
       }
     }
@@ -521,4 +535,3 @@ if (import.meta.url === `file://${process.argv[1]}`) {
 }
 
 export { AutoFix };
-
