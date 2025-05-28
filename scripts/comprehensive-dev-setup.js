@@ -17,7 +17,18 @@ class ComprehensiveDevSetup {
     this.config = {};
     this.issues = [];
     this.fixes = [];
-    this.isInteractive = process.stdin.isTTY && process.stdout.isTTY && !process.env.CI;
+    
+    // Enhanced environment detection for better Windows support
+    this.isInteractive = this.detectInteractiveMode();
+    this.isWindows = process.platform === 'win32';
+    this.isCIEnvironment = !!(process.env.CI || process.env.GITHUB_ACTIONS || process.env.GITLAB_CI);
+    
+    // Force non-interactive mode in problematic environments
+    if (this.isCIEnvironment || !process.stdout.isTTY) {
+      this.isInteractive = false;
+    }
+    
+    console.log(`🔧 Environment: ${this.isWindows ? 'Windows' : process.platform}, Interactive: ${this.isInteractive}, CI: ${this.isCIEnvironment}`);
     
     // Required environment variables with validation
     this.requiredEnvVars = {
@@ -703,6 +714,13 @@ ENABLE_RATE_LIMITING=true
     console.log('==================================');
     console.log('This will validate, configure, and start your webhook gateway.\n');
     
+    // Add immediate output to prevent silent execution
+    console.log('🚀 Starting setup process...');
+    console.log(`📍 Working directory: ${process.cwd()}`);
+    console.log(`🖥️  Platform: ${process.platform}`);
+    console.log(`🔧 Node.js: ${process.version}`);
+    console.log(`⚙️  Interactive mode: ${this.isInteractive ? 'Yes' : 'No (automated)'}\n`);
+    
     try {
       // Step 1: System Validation
       await this.validateSystem();
@@ -757,6 +775,10 @@ ENABLE_RATE_LIMITING=true
     console.log('   npm start          - Start the webhook gateway');
     console.log('   npm run health:check - Run health checks only');
     console.log('   npm run setup:db   - Setup database schema only');
+  }
+
+  detectInteractiveMode() {
+    return process.stdin.isTTY && process.stdout.isTTY && !process.env.CI;
   }
 }
 
