@@ -8,7 +8,7 @@
     "start": "node src/enhanced-server.js",
     "start:original": "node src/server.js",
     "test": "echo \"Error: no test specified\" && exit 1",
-    "dev": "node scripts/enhanced-ultra-deployment.js",
+    "dev": "node scripts/complete-webhook-automation.js",
     "dev:simple": "node scripts/simple-dev-setup.js",
     "dev:bulletproof": "node scripts/bulletproof-dev-setup.js",
     "dev:diagnostic": "node scripts/simple-diagnostic.js",
