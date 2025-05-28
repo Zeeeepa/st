@@ -566,5 +566,3 @@ export function createWebhookTests(baseUrl, config) {
   return suite;
 }
 
-export { testWebhookEndpoint, LoadTester, TestSuite };
-
