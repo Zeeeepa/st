@@ -13,6 +13,8 @@
     "dev:bulletproof": "node scripts/bulletproof-dev-setup.js",
     "dev:diagnostic": "node scripts/simple-diagnostic.js",
     "dev:coverage": "node scripts/deployment-coverage-analysis.js",
+    "setup:fresh": "node scripts/fresh-postgres-setup.js",
+    "start:simple": "node scripts/simple-start.js",
     "setup:db": "node scripts/setup-database.js",
     "setup:db:interactive": "node scripts/interactive-database-setup.js",
     "setup:db:fix": "node scripts/fix-database-auth.js",
