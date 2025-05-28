@@ -14,6 +14,8 @@
     "dev:diagnostic": "node scripts/simple-diagnostic.js",
     "dev:coverage": "node scripts/deployment-coverage-analysis.js",
     "setup:db": "node scripts/setup-database.js",
+    "setup:db:interactive": "node scripts/interactive-database-setup.js",
+    "setup:db:fix": "node scripts/fix-database-auth.js",
     "setup:webhooks": "node scripts/setup-webhooks.js",
     "health:check": "node scripts/health-check.js",
     "diagnose:linear": "node scripts/diagnose-linear.js",

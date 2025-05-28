@@ -518,19 +518,65 @@ DEPLOYMENT_ID=${crypto.randomUUID()}
   }
 
   async initializeDatabase() {
-    await this.log('🔄 🗄️ INITIALIZING DATABASE SCHEMA', 'info');
+    await this.log('🔄 🗂️ INITIALIZING DATABASE SCHEMA', 'info');
     
     try {
       const { initDatabase } = await import('../src/utils/postgresql.js');
       const { getConfig } = await import('../src/config.js');
       
       const config = getConfig();
+      console.log('🔄 Initializing PostgreSQL database...');
       await initDatabase(config);
       
       await this.log('✅ Database schema initialized successfully', 'success');
       return true;
     } catch (error) {
+      console.log(`❌ Failed to initialize database: ${error.message}`);
       await this.log(`❌ Database initialization failed: ${error.message}`, 'error');
+      
+      // Check if it's an authentication error
+      if (error.message.includes('password authentication failed') || 
+          error.message.includes('authentication failed')) {
+        await this.log('🔧 Database authentication failed. Starting interactive setup...', 'info');
+        
+        if (this.isInteractive) {
+          console.log('\n🗄️ INTERACTIVE DATABASE SETUP REQUIRED');
+          console.log('==========================================');
+          console.log('It looks like there\'s a database authentication issue.');
+          console.log('Let\'s set up your database configuration interactively.');
+          console.log('');
+          
+          try {
+            // Run the interactive database setup
+            await this.runCommand('node scripts/interactive-database-setup.js');
+            
+            // Try to initialize database again after interactive setup
+            console.log('\n🔄 Retrying database initialization...');
+            const { initDatabase: retryInitDatabase } = await import('../src/utils/postgresql.js');
+            const { getConfig: retryGetConfig } = await import('../src/config.js');
+            
+            // Clear module cache to reload updated config
+            delete require.cache[require.resolve('../src/config.js')];
+            
+            const retryConfig = retryGetConfig();
+            await retryInitDatabase(retryConfig);
+            
+            await this.log('✅ Database initialized successfully after interactive setup', 'success');
+            return true;
+          } catch (retryError) {
+            await this.log(`❌ Database initialization still failed: ${retryError.message}`, 'error');
+            console.log('\n⚠️ Manual database setup may be required.');
+            console.log('Please check your PostgreSQL installation and credentials.');
+            return false;
+          }
+        } else {
+          await this.log('❌ Non-interactive mode: Cannot prompt for database setup', 'error');
+          console.log('\n⚠️ Database authentication failed in non-interactive mode.');
+          console.log('Please run: node scripts/interactive-database-setup.js');
+          return false;
+        }
+      }
+      
       return false;
     }
   }
@@ -695,4 +741,3 @@ if (import.meta.url === `file://${process.argv[1]}`) {
 }
 
 export { EnhancedUltraDeployment };
-
