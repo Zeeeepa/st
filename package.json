@@ -7,7 +7,7 @@
   "scripts": {
     "start": "node src/server.js",
     "dev": "node scripts/interactive-dev-setup.js",
-    "dev:simple": "node src/server.js",
+    "dev:simple": "node scripts/simple-dev-setup.js",
     "setup:env": "node scripts/setup-env.js",
     "setup:db": "node scripts/setup-database.js",
     "setup:webhooks": "node scripts/setup-webhooks.js",

@@ -33,6 +33,19 @@ This single command will:
 - ✅ **Run health checks** to ensure everything works
 - ✅ **Start the development server** when ready
 
+**Alternative setup options:**
+
+```bash
+# Simple setup (minimal configuration)
+npm run dev:simple
+
+# Quick port fix (if database connection fails)
+npm run fix:port
+
+# System validation only
+npm run validate:system
+```
+
 ### Prerequisites
 
 - **Node.js** (v16 or higher)
