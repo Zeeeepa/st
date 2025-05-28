@@ -26,7 +26,7 @@ npm run dev
 This **single command** will:
 - 🔍 **Validate your entire system** - Node.js, npm, PostgreSQL, dependencies
 - 📦 **Install missing dependencies** automatically
-- ⚙️ **Interactive configuration** - Prompts for missing .env values with validation
+- ⚙️ **Interactive configuration** - Prompts for missing .env values with validation (when in interactive mode)
 - 🐘 **Detect and configure PostgreSQL** - Auto-detects port, creates database
 - 🔧 **Apply automatic fixes** - Port configuration, SSL settings, debug mode
 - 🗄️ **Setup database schema** - Creates tables and indexes
@@ -34,8 +34,29 @@ This **single command** will:
 - 🚀 **Start the development server** - Ready to receive webhooks
 - 📊 **Detailed logging** - Shows exactly what's happening at each step
 - 🛠️ **Issue resolution** - Provides specific guidance for any problems
+- 🖥️ **Cross-platform support** - Works on Windows, macOS, Linux
+- 🤖 **Smart environment detection** - Automatically handles interactive vs automated modes
 
 **No other commands needed!** This replaces all previous setup scripts with one comprehensive solution.
+
+### Additional Commands
+
+For specific tasks, you can also use:
+
+```bash
+# Database operations
+npm run setup:db        # Setup database schema only
+npm run health:check    # Run health checks only
+
+# Webhook configuration
+npm run setup:webhooks  # Configure webhook endpoints
+
+# Diagnostics
+npm run diagnose:linear # Diagnose Linear integration issues
+
+# Start server (after setup)
+npm start              # Start the webhook gateway
+```
 
 ### Prerequisites
 
@@ -96,7 +117,7 @@ webhook-gateway/
 │   ├── server.js              # Main Express server
 │   ├── config.js              # Configuration management
 │   ├── handlers/
-│   │   ├── github.js          # GitHub webhook handler
+│   │   ├─�� github.js          # GitHub webhook handler
 │   │   ├── linear.js          # Linear webhook handler
 │   │   └── slack.js           # Slack webhook handler
 │   └── utils/
