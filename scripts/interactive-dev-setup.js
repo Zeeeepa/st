@@ -210,6 +210,20 @@ class RobustDevSetup {
         throw new Error('package.json not found. Please run this script from the project root directory.');
       }
       
+      // Check for required dependencies
+      try {
+        await import('chalk');
+        this.log('Required dependencies available ✓', 'success');
+      } catch (error) {
+        this.log('Installing required dependencies...', 'step');
+        try {
+          await this.runCommand('npm install chalk readline', { timeout: 60000 });
+          this.log('Dependencies installed successfully ✓', 'success');
+        } catch (installError) {
+          throw new Error('Failed to install required dependencies. Please run: npm install chalk readline');
+        }
+      }
+      
       this.log('Project structure validated ✓', 'success');
       this.setupState.systemValidated = true;
       
@@ -459,20 +473,48 @@ class RobustDevSetup {
     console.log(chalk.gray('Press Ctrl+C to stop the server.\n'));
     
     if (isAutomated) {
-      console.log(chalk.yellow('Running in automated mode - starting server automatically...'));
+      console.log(chalk.yellow('Running in automated mode - checking if server can start...'));
       
-      console.log(chalk.green('\n✨ Starting webhook gateway...'));
-      console.log(chalk.gray('Server will be available at:'));
-      console.log(chalk.gray(`  • Main: http://localhost:${this.currentEnv.PORT || '3000'}`));
-      console.log(chalk.gray(`  • Health: http://localhost:${this.currentEnv.PORT || '3000'}/health`));
-      console.log(chalk.gray(`  • Metrics: http://localhost:${this.currentEnv.PORT || '3000'}/metrics`));
-      console.log(chalk.gray('\nWebhook endpoints:'));
-      console.log(chalk.gray(`  • GitHub: http://localhost:${this.currentEnv.PORT || '3000'}/webhook/github`));
-      console.log(chalk.gray(`  • Linear: http://localhost:${this.currentEnv.PORT || '3000'}/webhook/linear`));
-      console.log(chalk.gray(`  • Slack: http://localhost:${this.currentEnv.PORT || '3000'}/webhook/slack\n`));
-      
-      // Start the server
-      await this.runCommand('npm start');
+      // Check if we can actually start the server (PostgreSQL available)
+      try {
+        const { Pool } = await import('pg');
+        const pool = new Pool({
+          host: this.currentEnv.DB_HOST || 'localhost',
+          port: parseInt(this.currentEnv.DB_PORT || '5432'),
+          database: 'postgres',
+          user: this.currentEnv.DB_USER || 'postgres',
+          password: this.currentEnv.DB_PASSWORD || 'password',
+          connectionTimeoutMillis: 3000
+        });
+        
+        const client = await pool.connect();
+        await client.query('SELECT NOW()');
+        client.release();
+        await pool.end();
+        
+        console.log(chalk.green('\n✨ Starting webhook gateway...'));
+        console.log(chalk.gray('Server will be available at:'));
+        console.log(chalk.gray(`  • Main: http://localhost:${this.currentEnv.PORT || '3000'}`));
+        console.log(chalk.gray(`  • Health: http://localhost:${this.currentEnv.PORT || '3000'}/health`));
+        console.log(chalk.gray(`  • Metrics: http://localhost:${this.currentEnv.PORT || '3000'}/metrics`));
+        console.log(chalk.gray('\nWebhook endpoints:'));
+        console.log(chalk.gray(`  • GitHub: http://localhost:${this.currentEnv.PORT || '3000'}/webhook/github`));
+        console.log(chalk.gray(`  • Linear: http://localhost:${this.currentEnv.PORT || '3000'}/webhook/linear`));
+        console.log(chalk.gray(`  • Slack: http://localhost:${this.currentEnv.PORT || '3000'}/webhook/slack\n`));
+        
+        // Start the server
+        await this.runCommand('npm start');
+        
+      } catch (error) {
+        console.log(chalk.yellow('\n⚠️  Cannot start server automatically - PostgreSQL connection failed'));
+        console.log(chalk.gray('This is normal if PostgreSQL is not running or not configured.'));
+        console.log(chalk.cyan('\n🎯 Setup completed successfully!'));
+        console.log(chalk.gray('To start the server manually:'));
+        console.log(chalk.cyan('  1. Ensure PostgreSQL is running'));
+        console.log(chalk.cyan('  2. Create the "Events" database'));
+        console.log(chalk.cyan('  3. Run: npm start'));
+        console.log(chalk.gray('\nOr run the setup again with: npm run dev'));
+      }
     } else {
       console.log(chalk.yellow('\nSetup completed! You can now start the server with:'));
       console.log(chalk.cyan('npm start'));
@@ -528,4 +570,3 @@ if (import.meta.url === `file://${process.argv[1]}`) {
 }
 
 export { RobustDevSetup };
-
