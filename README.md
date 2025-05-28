@@ -1,6 +1,6 @@
-# Webhook Gateway - Cloudflare Worker
+# Webhook Gateway v3.0 - Local PostgreSQL Edition
 
-A comprehensive webhook gateway built on Cloudflare Workers that automatically captures and stores events from GitHub, Linear, and Slack in Supabase. Designed for zero-configuration setup with automatic webhook management.
+A comprehensive webhook gateway built with Node.js and Express that automatically captures and stores events from GitHub, Linear, and Slack in a local PostgreSQL database. Designed for zero-configuration setup with automatic database creation and webhook management.
 
 ## 🚀 Quick Start
 
@@ -12,35 +12,33 @@ npm run dev
 
 This single command will:
 - ✅ Validate your environment and prerequisites
-- ✅ Set up your Supabase database schema
-- ✅ Automatically configure webhooks for all your GitHub repositories
-- ✅ Set up Linear organization webhooks
-- ✅ Configure Slack Event Subscriptions (with guidance)
-- ✅ Run comprehensive tests
-- ✅ Start the development server
+- ✅ Create PostgreSQL database if it doesn't exist
+- ✅ Set up your database schema automatically
+- ✅ Start the Express server
 - ✅ Begin capturing events immediately
 
 ## 📋 Prerequisites
 
 - **Node.js** >= 16.0.0
 - **npm** (comes with Node.js)
-- **Cloudflare Account** with Workers enabled
-- **Supabase Project** (free tier works)
+- **PostgreSQL** >= 12.0 (running locally)
 
 ## ⚙️ Configuration
 
 Create a `.env` file in the root directory with your configuration:
 
 ```env
-# Cloudflare Configuration
-CLOUDFLARE_API_TOKEN=your_cloudflare_api_token
-CLOUDFLARE_ACCOUNT_ID=your_cloudflare_account_id
-CLOUDFLARE_WORKER_NAME=webhook-gateway
-CLOUDFLARE_WORKER_URL=https://your-worker.your-subdomain.workers.dev
+# Server Configuration
+PORT=3000
+HOST=localhost
+NODE_ENV=development
 
-# Supabase Configuration
-SUPABASE_URL=https://your-project.supabase.co
-SUPABASE_SERVICE_KEY=your_supabase_service_role_key
+# PostgreSQL Database Configuration
+DB_HOST=localhost
+DB_PORT=5432
+DB_NAME=Events
+DB_USER=postgres
+DB_PASSWORD=password
 
 # GitHub Configuration (Optional)
 GITHUB_TOKEN=your_github_personal_access_token
@@ -54,6 +52,16 @@ LINEAR_WEBHOOK_SECRET=your_webhook_secret
 SLACK_BOT_TOKEN=xoxb-your-bot-token
 SLACK_SIGNING_SECRET=your_signing_secret
 SLACK_APP_ID=your_app_id
+
+# Processing Configuration
+DEBUG=true
+ENABLE_BATCHING=true
+ENABLE_METRICS=true
+ENABLE_RETRY=true
+BATCH_SIZE=50
+BATCH_INTERVAL=5000
+MAX_RETRIES=3
+RETRY_DELAY=500
 ```
 
 ## 🏗️ Project Structure
@@ -61,18 +69,19 @@ SLACK_APP_ID=your_app_id
 ```
 webhook-gateway/
 ├── src/
-│   ├── worker.js              # Main Cloudflare Worker entry point
+│   ├── server.js              # Main Express server entry point
 │   ├── config.js              # Configuration management
 │   ├── handlers/
 │   │   ├── github.js          # GitHub webhook event processing
 │   │   ├── linear.js          # Linear webhook event processing
 │   │   └── slack.js           # Slack webhook event processing
 │   └── utils/
-│       ├── supabase.js        # Database operations
+│       ├── postgresql.js      # PostgreSQL database operations
 │       ├── security.js        # Signature verification
 │       └── metadata.js        # Event metadata extraction
 ├── scripts/
 │   ├── dev-setup.js           # 🌟 Main development setup script
+│   ├── create-database.js     # Database creation script
 │   ├── setup.js               # Comprehensive webhook setup
 │   ├── managers/
 │   │   ├── github-webhook-manager.js    # GitHub webhook automation
@@ -82,8 +91,7 @@ webhook-gateway/
 │   ├── test-webhook.js        # Webhook testing utilities
 │   └── health-check.js        # System health validation
 ├── package.json               # Dependencies and scripts
-├── wrangler.toml             # Cloudflare Worker configuration
-├── init_db.sql               # Database schema
+├── ecosystem.config.js        # PM2 configuration
 └── .env                      # Environment configuration
 ```
 
@@ -92,15 +100,23 @@ webhook-gateway/
 ### Development
 ```bash
 npm run dev              # 🌟 Complete setup + development server
-npm run dev:start        # Start development server only
-npm run dev:simple       # Simple development server
-npm run dev:remote       # Remote development server
+npm run dev:start        # Start development server with nodemon
+npm run dev:simple       # Start development server only
+npm start                # Start production server
+```
+
+### Database Management
+```bash
+npm run db:create        # Create PostgreSQL database
+npm run setup:db         # Set up database schema only
+npm run db:migrate       # Run database migrations
+npm run db:reset         # Reset database schema
+npm run db:backup        # Backup database
 ```
 
 ### Setup & Configuration
 ```bash
 npm run setup            # Run complete webhook setup
-npm run setup:db         # Set up database schema only
 npm run setup:check      # Validate current setup
 ```
 
@@ -113,56 +129,49 @@ npm run webhook:slack    # Test Slack webhooks only
 npm run health:check     # System health check
 ```
 
-### Deployment
+### Process Management (PM2)
 ```bash
-npm run deploy           # Deploy to production
-npm run deploy:staging   # Deploy to staging
-npm run logs             # View worker logs
-npm run metrics          # View performance metrics
+npm run pm2:start        # Start with PM2
+npm run pm2:stop         # Stop PM2 process
+npm run pm2:restart      # Restart PM2 process
+npm run pm2:delete       # Delete PM2 process
+npm run logs             # View PM2 logs
 ```
 
 ## 🌐 Webhook Endpoints
 
-Once deployed, your webhook gateway will be available at:
+Once running, your webhook gateway will be available at:
 
-- **GitHub**: `https://your-worker.workers.dev/webhook/github`
-- **Linear**: `https://your-worker.workers.dev/webhook/linear`
-- **Slack**: `https://your-worker.workers.dev/webhook/slack`
-- **Health**: `https://your-worker.workers.dev/health`
-- **Metrics**: `https://your-worker.workers.dev/metrics`
+- **GitHub**: `http://localhost:3000/webhook/github`
+- **Linear**: `http://localhost:3000/webhook/linear`
+- **Slack**: `http://localhost:3000/webhook/slack`
+- **Health**: `http://localhost:3000/health`
+- **Metrics**: `http://localhost:3000/metrics`
 
-## 🔄 Automatic Webhook Management
+## 🗄️ Database Setup
 
-### GitHub
-The system automatically:
-- Discovers all repositories you have access to
-- Creates webhooks for repositories that don't have them
-- Updates existing webhooks with correct configuration
-- Validates webhook signatures for security
-- Captures all repository events (pushes, PRs, issues, etc.)
+### Automatic Database Creation
 
-### Linear
-The system automatically:
-- Connects to your Linear organization
-- Creates organization-level webhooks
-- Captures all Linear events (issues, projects, cycles, etc.)
-- Validates webhook signatures
+The system automatically creates the PostgreSQL database and schema:
 
-### Slack
-The system:
-- Validates your Slack app configuration
-- Provides guidance for Event Subscriptions setup
-- Captures all workspace events once configured
-- Handles URL verification challenges
+1. **Database Creation**: If the `Events` database doesn't exist, it will be created automatically
+2. **Schema Initialization**: All required tables, indexes, and functions are created
+3. **User Management**: Uses the specified PostgreSQL user (`postgres` by default)
 
-## 📊 Event Storage
+### Manual Database Creation
 
-All events are automatically stored in Supabase with:
-- **Deduplication**: Prevents duplicate events
-- **Metadata Extraction**: Rich context and searchable fields
-- **Batch Processing**: Efficient bulk operations
-- **Retry Logic**: Automatic retry for failed operations
-- **Rate Limiting**: Respects API limits
+If you prefer to create the database manually:
+
+```bash
+# Connect to PostgreSQL
+psql -h localhost -p 5432 -U postgres
+
+# Create database
+CREATE DATABASE "Events";
+
+# Exit and run schema setup
+npm run setup:db
+```
 
 ### Database Schema
 
@@ -174,104 +183,175 @@ Events are stored in the `webhook_events` table with:
 - Rich metadata and additional context
 - Timestamps and delivery information
 
+Additional tables:
+- `webhook_events_failed` - Failed events for retry mechanism
+- `webhook_event_metrics` - Event analytics and metrics
+- `webhook_events_archive` - Archived old events
+
+## 🔄 Automatic Features
+
+### Event Processing
+- **Deduplication**: Prevents duplicate events using intelligent hashing
+- **Batch Processing**: Efficient bulk operations for high throughput
+- **Retry Logic**: Automatic retry for failed operations with exponential backoff
+- **Rate Limiting**: Built-in rate limiting to prevent abuse
+
+### Database Management
+- **Auto-creation**: Database and schema created automatically if missing
+- **Health Monitoring**: Continuous database health checks
+- **Archiving**: Automatic archiving of old events
+- **Metrics**: Real-time event processing metrics
+
+## 📊 Event Storage
+
+All events are automatically stored in PostgreSQL with:
+- **Rich Metadata**: Comprehensive event context and searchable fields
+- **JSON Support**: Full JSONB support for complex event payloads
+- **Indexing**: Optimized indexes for fast queries
+- **Full-text Search**: Built-in search capabilities
+- **Analytics**: Event aggregation and statistics functions
+
 ## 🔍 Monitoring & Debugging
 
 ### Real-time Logs
 ```bash
-npm run logs:live        # Pretty-formatted live logs
+npm run logs             # PM2 logs
 npm run logs:errors      # Error logs only
+npm run logs:live        # Live log streaming
 ```
 
 ### Health Monitoring
 ```bash
 npm run health:check     # Comprehensive health check
+curl http://localhost:3000/health  # Quick health check
 ```
 
 ### Metrics
 ```bash
 npm run metrics          # Performance and usage metrics
+curl http://localhost:3000/metrics  # API metrics
 ```
 
 ## 🛠️ Troubleshooting
 
-### Linear Events Not Being Caught
+### Database Connection Issues
 
-If Linear events aren't being processed despite successful tests:
-
-1. **Check Webhook Configuration**:
+**Error: Database connection failed**
+1. **Check PostgreSQL Status**:
    ```bash
-   npm run setup:check
+   # On macOS with Homebrew
+   brew services list | grep postgresql
+   brew services start postgresql
+   
+   # On Ubuntu/Debian
+   sudo systemctl status postgresql
+   sudo systemctl start postgresql
+   
+   # On Windows
+   net start postgresql-x64-13
    ```
 
-2. **Verify Linear Webhook URL**:
-   - Go to Linear Settings → API → Webhooks
-   - Ensure the URL matches your Cloudflare Worker URL
-   - Verify the webhook is enabled
-
-3. **Check Event Types**:
-   - Ensure all required event types are selected
-   - The system requires: Issue, Comment, Project, Cycle, User, Team, etc.
-
-4. **Test Webhook Endpoint**:
+2. **Verify Connection Settings**:
    ```bash
-   npm run webhook:linear
+   psql -h localhost -p 5432 -U postgres -d postgres
    ```
 
-5. **Check Worker Logs**:
-   ```bash
-   npm run logs:live
+3. **Check Database User Permissions**:
+   ```sql
+   -- Connect as superuser and grant permissions
+   GRANT ALL PRIVILEGES ON DATABASE "Events" TO postgres;
+   GRANT CREATE ON SCHEMA public TO postgres;
    ```
 
 ### Common Issues
 
+**Port Already in Use**:
+```bash
+# Find process using port 3000
+lsof -i :3000
+# Kill the process
+kill -9 <PID>
+```
+
 **Environment Variables Missing**:
-- Ensure all required variables are in `.env`
-- Check that `.env` is in the project root
-- Verify Cloudflare and Supabase credentials
+- Ensure `.env` file exists in project root
+- Check that all required variables are set
+- Verify PostgreSQL credentials
 
-**Webhook Creation Fails**:
-- Check API token permissions
-- Verify repository/organization access
-- Ensure webhook URLs are accessible
-
-**Database Connection Issues**:
-- Verify Supabase URL and service key
-- Check database schema with `npm run setup:db`
-- Ensure Supabase project is active
+**Database Schema Issues**:
+```bash
+# Reset database schema
+npm run db:reset
+# Or recreate database
+npm run db:create
+```
 
 ## 🚀 Deployment
 
-### Production Deployment
+### Local Production
 ```bash
-npm run deploy
+# Using PM2
+npm run pm2:start
+
+# Direct execution
+npm start
 ```
 
-### Environment-Specific Deployment
-```bash
-npm run deploy:staging      # Deploy to staging
-npm run deploy:production   # Deploy to production
+### Docker Deployment
+```dockerfile
+FROM node:18-alpine
+WORKDIR /app
+COPY package*.json ./
+RUN npm ci --only=production
+COPY . .
+EXPOSE 3000
+CMD ["npm", "start"]
 ```
 
-### Secrets Management
+### Environment-Specific Configuration
 ```bash
-npm run secrets:list        # List configured secrets
-wrangler secret put SECRET_NAME  # Add new secret
+# Development
+NODE_ENV=development npm start
+
+# Production
+NODE_ENV=production npm start
 ```
 
 ## 📈 Performance
 
+- **High Throughput**: Handles thousands of events per minute
 - **Batch Processing**: Events are batched for efficient database operations
-- **Rate Limiting**: Built-in rate limiting to respect API limits
+- **Connection Pooling**: PostgreSQL connection pooling for optimal performance
 - **Caching**: Intelligent caching for repeated operations
-- **Retry Logic**: Automatic retry with exponential backoff
 - **Monitoring**: Comprehensive metrics and health checks
 
 ## 🔒 Security
 
 - **Signature Verification**: All webhooks verify signatures
-- **Environment Isolation**: Separate staging and production environments
-- **Secret Management**: Secure secret storage with Wrangler
-- **Access Control**: Proper API token scoping
+- **Rate Limiting**: Built-in rate limiting protection
+- **Input Validation**: Comprehensive input validation and sanitization
+- **SQL Injection Protection**: Parameterized queries prevent SQL injection
+- **Environment Isolation**: Secure environment variable management
+
+## 🆕 What's New in v3.0
+
+### Major Changes
+- **🗄️ PostgreSQL Migration**: Migrated from Supabase to local PostgreSQL
+- **🚀 Express Server**: Replaced Cloudflare Workers with Express.js
+- **🔧 Auto-Setup**: Automatic database creation and schema initialization
+- **📦 Simplified Deployment**: No external dependencies required
+
+### New Features
+- **Database Auto-Creation**: Automatically creates database if missing
+- **Enhanced Monitoring**: Improved health checks and metrics
+- **Better Error Handling**: Comprehensive error handling and recovery
+- **PM2 Integration**: Production-ready process management
+- **Docker Support**: Container-ready deployment
+
+### Breaking Changes
+- **Configuration**: New environment variables for PostgreSQL
+- **Endpoints**: Server runs on localhost:3000 by default
+- **Dependencies**: New Node.js dependencies (pg, express, etc.)
 
 ## 🤝 Contributing
 
@@ -294,5 +374,5 @@ MIT License - see LICENSE file for details
 
 ---
 
-**🎉 Happy webhook capturing!** Your events are now flowing automatically from GitHub, Linear, and Slack into your Supabase database with zero manual configuration required.
+**🎉 Happy webhook capturing!** Your events are now flowing automatically from GitHub, Linear, and Slack into your local PostgreSQL database with zero external dependencies required.
 

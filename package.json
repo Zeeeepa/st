@@ -1,19 +1,16 @@
 {
   "name": "webhook-gateway-enhanced",
-  "version": "2.0.0",
-  "description": "Enhanced Cloudflare Worker to capture and store webhook events from GitHub, Linear, and Slack in Supabase",
-  "main": "src/worker.js",
+  "version": "3.0.0",
+  "description": "Enhanced Local Webhook Gateway to capture and store webhook events from GitHub, Linear, and Slack in PostgreSQL",
+  "main": "src/server.js",
   "type": "module",
   "scripts": {
+    "start": "node src/server.js",
     "dev": "node scripts/dev-setup.js",
-    "dev:start": "wrangler dev --local --persist-to .wrangler/state",
-    "dev:simple": "wrangler dev --local",
-    "dev:remote": "wrangler dev",
+    "dev:start": "nodemon src/server.js",
+    "dev:simple": "node src/server.js",
     "dev:test": "npm run dev & npm run webhook:test:wait",
     "webhook:test:wait": "node -e \"setTimeout(() => {}, 5000)\" && npm run webhook:test",
-    "deploy": "wrangler deploy",
-    "deploy:staging": "wrangler deploy --env staging",
-    "deploy:production": "wrangler deploy --env production",
     "setup": "node scripts/setup.js",
     "setup:complete": "npm run setup:env && npm run setup && npm run setup:check",
     "setup:env": "node scripts/setup-env.js",
@@ -28,9 +25,9 @@
     "lint": "eslint src/**/*.js",
     "lint:fix": "eslint src/**/*.js --fix",
     "format": "prettier --write \"src/**/*.js\"",
-    "logs": "wrangler tail",
-    "logs:errors": "wrangler tail --format json | grep ERROR",
-    "logs:live": "wrangler tail --format pretty",
+    "logs": "pm2 logs webhook-gateway",
+    "logs:errors": "pm2 logs webhook-gateway --err",
+    "logs:live": "pm2 logs webhook-gateway --lines 100",
     "metrics": "node scripts/view-metrics.js",
     "retry:failed": "node scripts/retry-failed.js",
     "archive:old": "node scripts/archive-events.js",
@@ -39,26 +36,34 @@
     "webhook:github": "node scripts/test-webhook.js github",
     "webhook:linear": "node scripts/test-webhook.js linear",
     "webhook:slack": "node scripts/test-webhook.js slack",
-    "webhook:test:local": "cross-env TEST_WEBHOOK_ENDPOINT=http://localhost:8787 node scripts/test-webhook.js",
-    "webhook:test:prod": "cross-env TEST_WEBHOOK_ENDPOINT=https://webhook-gateway.pixeliumperfecto.workers.dev node scripts/test-webhook.js",
+    "webhook:test:local": "cross-env TEST_WEBHOOK_ENDPOINT=http://localhost:3000 node scripts/test-webhook.js",
+    "webhook:test:prod": "cross-env TEST_WEBHOOK_ENDPOINT=http://localhost:3000 node scripts/test-webhook.js",
     "diagnose:linear": "node scripts/diagnose-linear.js",
     "db:migrate": "node scripts/migrate-database.js",
     "db:seed": "node scripts/seed-database.js",
     "db:reset": "node scripts/reset-database.js",
     "db:backup": "node scripts/backup-database.js",
-    "secrets:list": "wrangler secret list",
-    "secrets:delete": "node scripts/delete-secrets.js",
+    "db:create": "node scripts/create-database.js",
     "build": "node scripts/build.js",
-    "clean": "rimraf .wrangler dist node_modules",
+    "clean": "rimraf dist node_modules",
     "reinstall": "npm run clean && npm install",
-    "update:wrangler": "npm install --save-dev wrangler@latest"
+    "pm2:start": "pm2 start ecosystem.config.js",
+    "pm2:stop": "pm2 stop webhook-gateway",
+    "pm2:restart": "pm2 restart webhook-gateway",
+    "pm2:delete": "pm2 delete webhook-gateway"
   },
   "dependencies": {
-    "@supabase/supabase-js": "^2.39.0",
-    "itty-router": "^4.0.0"
+    "express": "^4.18.2",
+    "pg": "^8.11.3",
+    "cors": "^2.8.5",
+    "helmet": "^7.1.0",
+    "compression": "^1.7.4",
+    "express-rate-limit": "^7.1.5",
+    "express-validator": "^7.0.1",
+    "morgan": "^1.10.0",
+    "uuid": "^9.0.1"
   },
   "devDependencies": {
-    "@cloudflare/workers-types": "^4.20240117.0",
     "chalk": "^5.3.0",
     "cross-env": "^7.0.3",
     "crypto-js": "^4.2.0",
@@ -67,14 +72,14 @@
     "eslint-config-prettier": "^9.1.0",
     "eslint-plugin-import": "^2.29.1",
     "inquirer": "^9.2.12",
-    "miniflare": "^3.20240129.0",
     "node-fetch": "^3.3.2",
+    "nodemon": "^3.0.2",
     "ora": "^8.0.1",
+    "pm2": "^5.3.0",
     "prettier": "^3.2.4",
     "rimraf": "^5.0.5",
     "vite": "^5.0.12",
-    "vitest": "^1.2.1",
-    "wrangler": "^4.16.1"
+    "vitest": "^1.2.1"
   },
   "engines": {
     "node": ">=16.0.0"
@@ -84,15 +89,16 @@
     "url": "git+https://github.com/yourusername/webhook-gateway.git"
   },
   "keywords": [
-    "cloudflare-workers",
     "webhooks",
     "github",
     "linear",
     "slack",
-    "supabase",
+    "postgresql",
     "event-processing",
     "batch-processing",
-    "rate-limiting"
+    "rate-limiting",
+    "express",
+    "nodejs"
   ],
   "author": "Your Name",
   "license": "MIT",
@@ -101,3 +107,4 @@
   },
   "homepage": "https://github.com/yourusername/webhook-gateway#readme"
 }
+
