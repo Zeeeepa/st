@@ -60,10 +60,11 @@ class EnhancedUltraDeployment {
   }
 
   generateSecurePassword(length = 32) {
-    const charset = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*';
+    // Use URL-safe characters to avoid encoding issues
+    const charset = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
     let password = '';
     for (let i = 0; i < length; i++) {
-      password += charset.charAt(crypto.randomInt(0, charset.length));
+      password += charset.charAt(Math.floor(Math.random() * charset.length));
     }
     return password;
   }
@@ -115,28 +116,20 @@ class EnhancedUltraDeployment {
     }
   }
 
-  async testNetworkConnectivity() {
+  async testNetworkConnectivity(url = 'https://www.google.com') {
     await this.log('🔄 🌐 TESTING NETWORK CONNECTIVITY', 'info');
     
-    const testUrls = [
-      'https://www.google.com',
-      'https://github.com',
-      'https://registry.npmjs.org'
-    ];
-    
-    for (const url of testUrls) {
-      try {
-        const response = await fetch(url, { 
-          method: 'HEAD', 
-          timeout: 5000,
-          signal: AbortSignal.timeout(5000)
-        });
-        if (response.ok) {
-          await this.log(`✅ Network connectivity to ${url}: OK`, 'success');
-        }
-      } catch (error) {
-        await this.log(`⚠️ Network connectivity to ${url}: Failed`, 'warning');
+    try {
+      const response = await fetch(url, { 
+        method: 'HEAD', 
+        timeout: 5000,
+        signal: AbortSignal.timeout(5000)
+      });
+      if (response.ok) {
+        await this.log(`✅ Network connectivity to ${url}: OK`, 'success');
       }
+    } catch (error) {
+      await this.log(`⚠️ Network connectivity to ${url}: Failed`, 'warning');
     }
     
     return true;
@@ -316,6 +309,91 @@ class EnhancedUltraDeployment {
     }
   }
 
+  async setupPostgreSQLDatabase() {
+    await this.log('🐘 SETTING UP POSTGRESQL DATABASE');
+    
+    try {
+      // Read current .env to get the actual DB configuration
+      const envContent = fs.readFileSync(this.envPath, 'utf8');
+      const envConfig = {};
+      envContent.split('\n').forEach(line => {
+        const [key, ...valueParts] = line.split('=');
+        if (key && valueParts.length > 0) {
+          envConfig[key.trim()] = valueParts.join('=').trim();
+        }
+      });
+
+      const dbUser = envConfig.DB_USER || 'postgres';
+      const dbPassword = envConfig.DB_PASSWORD || 'password';
+      const dbName = envConfig.DB_NAME || 'Events';
+      
+      await this.log(`🔄 Setting up database for user: ${dbUser}`);
+      
+      // Try direct psql first, then sudo if needed
+      let useSudo = false;
+      
+      try {
+        await this.runCommand('psql -U postgres -c "SELECT version();"');
+      } catch (error) {
+        if (error.message.includes('authentication failed') || error.message.includes('not found')) {
+          useSudo = true;
+          await this.log('🔄 Trying with sudo...');
+        }
+      }
+      
+      const sudoPrefix = useSudo ? 'sudo -u postgres ' : '';
+      
+      // Create user if not postgres
+      if (dbUser !== 'postgres') {
+        try {
+          await this.runCommand(`${sudoPrefix}psql -c "CREATE USER ${dbUser} WITH PASSWORD '${dbPassword}';"`);
+          await this.log(`✅ User ${dbUser} created`);
+        } catch (error) {
+          if (error.message.includes('already exists')) {
+            await this.log(`ℹ️ User ${dbUser} already exists`);
+            // Update password for existing user
+            await this.runCommand(`${sudoPrefix}psql -c "ALTER USER ${dbUser} WITH PASSWORD '${dbPassword}';"`);
+            await this.log(`✅ Password updated for user ${dbUser}`);
+          } else {
+            throw error;
+          }
+        }
+      }
+      
+      // Create database
+      try {
+        if (useSudo) {
+          if (dbUser === 'postgres') {
+            await this.runCommand(`sudo -u postgres createdb ${dbName}`);
+          } else {
+            await this.runCommand(`sudo -u postgres createdb -O ${dbUser} ${dbName}`);
+            await this.runCommand(`sudo -u postgres psql -c "GRANT ALL PRIVILEGES ON DATABASE ${dbName} TO ${dbUser};"`);
+          }
+        } else {
+          if (dbUser === 'postgres') {
+            await this.runCommand(`createdb -U postgres ${dbName}`);
+          } else {
+            await this.runCommand(`createdb -U postgres -O ${dbUser} ${dbName}`);
+            await this.runCommand(`psql -U postgres -c "GRANT ALL PRIVILEGES ON DATABASE ${dbName} TO ${dbUser};"`);
+          }
+        }
+        await this.log(`✅ Database ${dbName} created`);
+      } catch (error) {
+        if (error.message.includes('already exists')) {
+          await this.log(`ℹ️ Database ${dbName} already exists`);
+        } else {
+          throw error;
+        }
+      }
+      
+      await this.log('✅ PostgreSQL database setup completed');
+      
+    } catch (error) {
+      await this.log(`❌ Database setup failed: ${error.message}`, 'error');
+      throw error;
+    }
+  }
+
   async setupSecurePostgreSQL() {
     await this.log('🔄 🔐 SETTING UP SECURE POSTGRESQL CONFIGURATION', 'info');
     
@@ -417,212 +495,227 @@ class EnhancedUltraDeployment {
     return false;
   }
 
-  async createSecureEnvironmentFile() {
-    await this.log('🔄 🔐 CREATING SECURE ENVIRONMENT CONFIGURATION', 'info');
+  async createSecureEnvironmentConfig() {
+    await this.log('🔐 CREATING SECURE ENVIRONMENT CONFIGURATION');
     
-    const dbPassword = this.securePasswords.dbPassword || 'password';
-    const webhookSecret = this.securePasswords.webhookSecret || this.generateSecureSecret(32);
-    const jwtSecret = this.securePasswords.jwtSecret || this.generateSecureSecret(64);
+    // Read existing .env if it exists
+    let existingEnv = {};
+    if (fs.existsSync(this.envPath)) {
+      const envContent = fs.readFileSync(this.envPath, 'utf8');
+      envContent.split('\n').forEach(line => {
+        const [key, ...valueParts] = line.split('=');
+        if (key && valueParts.length > 0) {
+          existingEnv[key.trim()] = valueParts.join('=').trim();
+        }
+      });
+    }
+
+    // Use existing DB_USER or default to postgres (not webhook_user)
+    const dbUser = existingEnv.DB_USER || 'postgres';
+    const dbPassword = existingEnv.DB_PASSWORD || this.generateSecurePassword(32);
     
-    const envContent = `# Secure Environment Configuration
-# Generated by Enhanced Ultra Comprehensive Deployment
-# Generated on: ${new Date().toISOString()}
+    // Generate secure secrets
+    const webhookSecret = this.generateSecurePassword(64);
+    const jwtSecret = this.generateSecurePassword(128);
+    
+    // Store passwords for later use
+    this.securePasswords = {
+      database: dbPassword,
+      webhook: webhookSecret,
+      jwt: jwtSecret
+    };
 
-# Application Configuration
-NODE_ENV=development
-PORT=3000
-HOST=localhost
-DEBUG=true
+    const envConfig = `# Webhook Gateway Configuration
+# Generated by enhanced ultra deployment
 
-# Database Configuration (PostgreSQL) - SECURE
+# PostgreSQL Database Configuration
 DB_HOST=localhost
 DB_PORT=5432
 DB_NAME=Events
-DB_USER=webhook_user
+DB_USER=${dbUser}
 DB_PASSWORD=${dbPassword}
 DB_SSL=false
-DB_MAX_CONNECTIONS=20
-DB_IDLE_TIMEOUT=30000
-DB_CONNECTION_TIMEOUT=2000
 
-# Security Configuration
-ENABLE_RATE_LIMITING=true
-RATE_LIMIT_WINDOW_MS=900000
-RATE_LIMIT_MAX_REQUESTS=100
+# Server Configuration
+PORT=3000
+HOST=localhost
+NODE_ENV=development
+
+# GitHub Configuration
+GITHUB_TOKEN=
+GITHUB_WEBHOOK_SECRET=${webhookSecret}
+
+# Linear Configuration
+LINEAR_API_KEY=
+LINEAR_WEBHOOK_SECRET=${webhookSecret}
+
+# Slack Configuration
+SLACK_BOT_TOKEN=
+SLACK_SIGNING_SECRET=${webhookSecret}
+
+# JWT Configuration
 JWT_SECRET=${jwtSecret}
-WEBHOOK_SECRET=${webhookSecret}
-ENABLE_HTTPS=false
-SSL_CERT_PATH=
-SSL_KEY_PATH=
 
-# Webhook Configuration
-WEBHOOK_TIMEOUT=30000
-WEBHOOK_RETRY_ATTEMPTS=3
-WEBHOOK_RETRY_DELAY=1000
-
-# GitHub Integration (Optional - Set these manually)
-# GITHUB_TOKEN=your_github_token_here
-# GITHUB_WEBHOOK_SECRET=your_github_webhook_secret_here
-
-# Linear Integration (Optional - Set these manually)
-# LINEAR_API_KEY=your_linear_api_key_here
-# LINEAR_WEBHOOK_SECRET=your_linear_webhook_secret_here
-
-# Slack Integration (Optional - Set these manually)
-# SLACK_BOT_TOKEN=your_slack_bot_token_here
-# SLACK_SIGNING_SECRET=your_slack_signing_secret_here
-
-# Logging Configuration
-LOG_LEVEL=info
-LOG_FORMAT=combined
-ENABLE_REQUEST_LOGGING=true
-LOG_FILE_PATH=./logs/webhook-gateway.log
-
-# Performance Configuration
-ENABLE_COMPRESSION=true
-ENABLE_CORS=true
-CORS_ORIGIN=*
-ENABLE_HELMET=true
-
-# Health Check Configuration
-HEALTH_CHECK_INTERVAL=30000
+# Development Configuration
+DEBUG=true
+ENABLE_BATCHING=true
 ENABLE_METRICS=true
-METRICS_PORT=9090
-
-# System Information
-SYSTEM_ARCH=${this.systemInfo.architecture || 'unknown'}
-SYSTEM_PLATFORM=${this.systemInfo.platform || 'unknown'}
-SYSTEM_CPUS=${this.systemInfo.cpus || 'unknown'}
-DEPLOYMENT_ID=${crypto.randomUUID()}
+ENABLE_RATE_LIMITING=true
 `;
 
-    fs.writeFileSync(this.envPath, envContent);
+    // Write .env file with secure permissions
+    fs.writeFileSync(this.envPath, envConfig, { mode: 0o600 });
+    await this.log('✅ Secure file permissions set on .env');
+    await this.log('✅ Secure environment configuration created');
     
-    // Set secure file permissions (Unix-like systems)
-    if (!this.isWindows) {
-      try {
-        fs.chmodSync(this.envPath, 0o600); // Read/write for owner only
-        await this.log('✅ Secure file permissions set on .env', 'success');
-      } catch (error) {
-        await this.log(`⚠️ Could not set secure permissions: ${error.message}`, 'warning');
-      }
-    }
-    
-    await this.log('✅ Secure environment configuration created', 'success');
-    
-    // Display security information
-    await this.log('🔐 SECURITY INFORMATION:', 'info');
-    await this.log(`Database password: ${dbPassword.substring(0, 8)}... (${dbPassword.length} chars)`, 'info');
-    await this.log(`Webhook secret: ${webhookSecret.substring(0, 8)}... (${webhookSecret.length} chars)`, 'info');
-    await this.log(`JWT secret: ${jwtSecret.substring(0, 8)}... (${jwtSecret.length} chars)`, 'info');
+    // Log security information (truncated for security)
+    await this.log('🔐 SECURITY INFORMATION:');
+    await this.log(`Database password: ${dbPassword.substring(0, 8)}... (${dbPassword.length} chars)`);
+    await this.log(`Webhook secret: ${webhookSecret.substring(0, 8)}... (${webhookSecret.length} chars)`);
+    await this.log(`JWT secret: ${jwtSecret.substring(0, 8)}... (${jwtSecret.length} chars)`);
   }
 
   async initializeDatabase() {
-    await this.log('🔄 🗂️ INITIALIZING DATABASE SCHEMA', 'info');
+    await this.log('📁 INITIALIZING DATABASE SCHEMA');
     
     try {
-      const { initDatabase } = await import('../src/utils/postgresql.js');
-      const { getConfig } = await import('../src/config.js');
+      // Read current .env to get the actual DB configuration
+      const envContent = fs.readFileSync(this.envPath, 'utf8');
+      const envConfig = {};
+      envContent.split('\n').forEach(line => {
+        const [key, ...valueParts] = line.split('=');
+        if (key && valueParts.length > 0) {
+          envConfig[key.trim()] = valueParts.join('=').trim();
+        }
+      });
+
+      const dbUser = envConfig.DB_USER || 'postgres';
+      const dbPassword = envConfig.DB_PASSWORD || 'password';
+      const dbName = envConfig.DB_NAME || 'Events';
       
-      const config = getConfig();
-      console.log('🔄 Initializing PostgreSQL database...');
-      await initDatabase(config);
+      await this.log(`🔄 Initializing PostgreSQL database with user: ${dbUser}...`);
       
-      await this.log('✅ Database schema initialized successfully', 'success');
-      return true;
-    } catch (error) {
-      console.log(`❌ Failed to initialize database: ${error.message}`);
-      await this.log(`❌ Database initialization failed: ${error.message}`, 'error');
-      
-      // Check if it's an authentication error
-      if (error.message.includes('password authentication failed') || 
-          error.message.includes('authentication failed')) {
-        await this.log('🔧 Database authentication failed. Starting interactive setup...', 'info');
-        
-        if (this.isInteractive) {
-          console.log('\n🗄️ INTERACTIVE DATABASE SETUP REQUIRED');
-          console.log('==========================================');
-          console.log('It looks like there\'s a database authentication issue.');
-          console.log('Let\'s set up your database configuration interactively.');
-          console.log('');
-          
-          try {
-            // Run the interactive database setup
-            await this.runCommand('node scripts/interactive-database-setup.js');
-            
-            // Try to initialize database again after interactive setup
-            console.log('\n🔄 Retrying database initialization...');
-            const { initDatabase: retryInitDatabase } = await import('../src/utils/postgresql.js');
-            const { getConfig: retryGetConfig } = await import('../src/config.js');
-            
-            // Clear module cache to reload updated config
-            delete require.cache[require.resolve('../src/config.js')];
-            
-            const retryConfig = retryGetConfig();
-            await retryInitDatabase(retryConfig);
-            
-            await this.log('✅ Database initialized successfully after interactive setup', 'success');
-            return true;
-          } catch (retryError) {
-            await this.log(`❌ Database initialization still failed: ${retryError.message}`, 'error');
-            console.log('\n⚠️ Manual database setup may be required.');
-            console.log('Please check your PostgreSQL installation and credentials.');
-            return false;
+      // Create database and user if they don't exist
+      if (dbUser !== 'postgres') {
+        // Create the custom user if it's not postgres
+        try {
+          await this.runCommand(`psql -U postgres -c "CREATE USER ${dbUser} WITH PASSWORD '${dbPassword}';"`);
+          await this.log(`✅ User ${dbUser} created`);
+        } catch (error) {
+          if (error.message.includes('already exists')) {
+            await this.log(`ℹ️ User ${dbUser} already exists`);
+          } else {
+            throw error;
           }
-        } else {
-          await this.log('❌ Non-interactive mode: Cannot prompt for database setup', 'error');
-          console.log('\n⚠️ Database authentication failed in non-interactive mode.');
-          console.log('Please run: node scripts/interactive-database-setup.js');
-          return false;
         }
       }
       
-      return false;
+      // Create database if it doesn't exist
+      try {
+        if (dbUser === 'postgres') {
+          await this.runCommand(`createdb -U postgres ${dbName}`);
+        } else {
+          await this.runCommand(`createdb -U postgres -O ${dbUser} ${dbName}`);
+          await this.runCommand(`psql -U postgres -c "GRANT ALL PRIVILEGES ON DATABASE ${dbName} TO ${dbUser};"`);
+        }
+        await this.log(`✅ Database ${dbName} created`);
+      } catch (error) {
+        if (error.message.includes('already exists')) {
+          await this.log(`ℹ️ Database ${dbName} already exists`);
+        } else {
+          throw error;
+        }
+      }
+
+      // Test database connection with proper URL encoding
+      const encodedPassword = encodeURIComponent(dbPassword);
+      const connectionString = `postgresql://${dbUser}:${encodedPassword}@localhost:5432/${dbName}`;
+      
+      await this.runCommand(`psql "${connectionString}" -c "SELECT version();"`);
+      await this.log('✅ Database connection test successful');
+      
+      // Initialize the application to create schema
+      await this.log('🔄 Initializing application schema...');
+      
+      // Import and run the database initialization
+      const { initDatabase, getConfig } = await import('../src/utils/postgresql.js');
+      const { getConfig: getAppConfig } = await import('../src/config.js');
+      
+      const config = getAppConfig();
+      await initDatabase(config);
+      
+      await this.log('✅ Database schema initialized successfully');
+      
+    } catch (error) {
+      await this.log(`❌ Database initialization failed: ${error.message}`, 'error');
+      throw error;
     }
   }
 
   async performComprehensiveHealthChecks() {
-    await this.log('🔄 🏥 PERFORMING COMPREHENSIVE HEALTH CHECKS', 'info');
+    await this.log('🏥 PERFORMING COMPREHENSIVE HEALTH CHECKS');
     
-    const healthResults = {
-      database: false,
-      network: false,
-      system: false,
-      security: false
-    };
+    let healthScore = 0;
+    const totalChecks = 4;
     
-    try {
-      // Database health check
-      const { getConfig } = await import('../src/config.js');
-      const { checkDatabaseHealth } = await import('../src/utils/postgresql.js');
-      
-      const config = getConfig();
-      const dbHealth = await checkDatabaseHealth(config);
-      healthResults.database = dbHealth.healthy;
-      
-      if (dbHealth.healthy) {
-        await this.log('✅ Database health check: PASSED', 'success');
-      } else {
-        await this.log(`❌ Database health check: FAILED - ${dbHealth.error}`, 'error');
+    // Database health check
+    const dbHealthy = await this.performDatabaseHealthCheck();
+    if (dbHealthy) healthScore++;
+    
+    // Network connectivity checks
+    await this.log('🌐 TESTING NETWORK CONNECTIVITY');
+    
+    const networkTests = [
+      'https://www.google.com',
+      'https://github.com',
+      'https://registry.npmjs.org'
+    ];
+    
+    for (const url of networkTests) {
+      try {
+        await this.testNetworkConnectivity(url);
+        await this.log(`✅ Network connectivity to ${url}: OK`);
+        healthScore++;
+      } catch (error) {
+        await this.log(`❌ Network connectivity to ${url}: FAILED`, 'error');
       }
+    }
+    
+    // System resource validation
+    await this.log('🔍 VALIDATING SYSTEM RESOURCES');
+    await this.validateSystemResources();
+    
+    await this.log(`📊 Health check summary: ${healthScore}/${totalChecks + networkTests.length} passed`);
+    
+    return healthScore >= totalChecks; // Require database + at least basic functionality
+  }
+
+  async performDatabaseHealthCheck() {
+    try {
+      // Read current .env to get the actual DB configuration
+      const envContent = fs.readFileSync(this.envPath, 'utf8');
+      const envConfig = {};
+      envContent.split('\n').forEach(line => {
+        const [key, ...valueParts] = line.split('=');
+        if (key && valueParts.length > 0) {
+          envConfig[key.trim()] = valueParts.join('=').trim();
+        }
+      });
+
+      const dbUser = envConfig.DB_USER || 'postgres';
+      const dbPassword = envConfig.DB_PASSWORD || 'password';
+      const dbName = envConfig.DB_NAME || 'Events';
       
-      // Network connectivity check
-      healthResults.network = await this.testNetworkConnectivity();
+      // Test database connection with proper URL encoding
+      const encodedPassword = encodeURIComponent(dbPassword);
+      const connectionString = `postgresql://${dbUser}:${encodedPassword}@localhost:5432/${dbName}`;
       
-      // System resources check
-      healthResults.system = await this.validateSystemResources();
+      await this.runCommand(`psql "${connectionString}" -c "SELECT version();"`);
+      await this.log('✅ Database health check: PASSED');
+      return true;
       
-      // Security configuration check
-      healthResults.security = fs.existsSync(this.envPath);
-      
-      const passedChecks = Object.values(healthResults).filter(Boolean).length;
-      const totalChecks = Object.keys(healthResults).length;
-      
-      await this.log(`📊 Health check summary: ${passedChecks}/${totalChecks} passed`, 'info');
-      
-      return passedChecks >= 3; // Require at least 3/4 checks to pass
     } catch (error) {
-      await this.log(`❌ Health checks failed: ${error.message}`, 'error');
+      await this.log(`❌ Database health check: FAILED - ${error.message}`, 'error');
       return false;
     }
   }
@@ -693,23 +786,26 @@ DEPLOYMENT_ID=${crypto.randomUUID()}
       await this.runCommand('npm install');
       await this.log('✅ Dependencies installed', 'success');
       
-      // Step 4: Ensure PostgreSQL is available with security
+      // Step 4: Ensure PostgreSQL is available and configured
       const postgresAvailable = await this.ensurePostgreSQL();
       
       // Step 5: Create secure environment file
-      await this.createSecureEnvironmentFile();
+      await this.createSecureEnvironmentConfig();
       
-      // Step 6: Initialize database (if PostgreSQL is available)
+      // Step 6: Setup PostgreSQL database and user
       if (postgresAvailable) {
-        await this.initializeDatabase();
-      } else {
-        await this.log('⚠️ Skipping database initialization (PostgreSQL not available)', 'warning');
+        await this.setupPostgreSQLDatabase();
       }
       
-      // Step 7: Comprehensive health checks
+      // Step 7: Initialize database schema
+      if (postgresAvailable) {
+        await this.initializeDatabase();
+      }
+      
+      // Step 8: Comprehensive health checks
       const healthPassed = await this.performComprehensiveHealthChecks();
       
-      // Step 8: Start the server
+      // Step 9: Start the server
       if (postgresAvailable && healthPassed) {
         await this.startServer();
       } else {
