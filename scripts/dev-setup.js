@@ -1,258 +1,237 @@
 #!/usr/bin/env node
-// scripts/dev-setup.js - Unified Development Setup Script
+// scripts/dev-setup.js - Enhanced Development Setup for Local PostgreSQL
+
 import chalk from 'chalk';
 import ora from 'ora';
-import dotenv from 'dotenv';
-import path from 'path';
-import { fileURLToPath } from 'url';
 import { spawn } from 'child_process';
-import { setupWebhookGateway } from './setup.js';
+import { getConfig, validateConfig, printConfigSummary } from '../src/config.js';
+import { initDatabase, checkDatabaseHealth } from '../src/utils/postgresql.js';
+import { createWebhookTests } from '../src/utils/testing.js';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-const rootDir = path.join(__dirname, '..');
-
-// Load environment variables
-dotenv.config({ path: path.join(rootDir, '.env') });
-
-async function checkPrerequisites() {
-  const spinner = ora('Checking prerequisites...').start();
+// Enhanced development setup
+async function runDevSetup() {
+  console.log(chalk.blue.bold('🚀 Webhook Gateway v3.0 - Development Setup'));
+  console.log(chalk.blue.bold('===============================================\n'));
   
-  const checks = {
-    node: false,
-    npm: false,
-    wrangler: false,
-    env: false
-  };
+  let spinner = ora('Initializing development environment...').start();
   
   try {
-    // Check Node.js version
-    const nodeVersion = process.version;
-    const majorVersion = parseInt(nodeVersion.slice(1).split('.')[0]);
-    checks.node = majorVersion >= 16;
+    // Step 1: Load and validate configuration
+    spinner.text = 'Loading configuration...';
+    const config = getConfig();
     
-    // Check npm
     try {
-      const { execSync } = await import('child_process');
-      execSync('npm --version', { stdio: 'ignore' });
-      checks.npm = true;
+      validateConfig(config);
+      spinner.succeed(chalk.green('✅ Configuration loaded and validated'));
     } catch (error) {
-      checks.npm = false;
+      spinner.fail(chalk.red('❌ Configuration validation failed'));
+      console.error(chalk.red('Error:'), error.message);
+      console.log(chalk.yellow('\n💡 Please check your .env file and ensure all required variables are set.'));
+      process.exit(1);
     }
     
-    // Check wrangler
+    // Print configuration summary
+    printConfigSummary(config);
+    
+    // Step 2: Check PostgreSQL connection
+    spinner = ora('Checking PostgreSQL connection...').start();
+    
     try {
-      const { execSync } = await import('child_process');
-      execSync('npx wrangler --version', { stdio: 'ignore' });
-      checks.wrangler = true;
+      const dbHealth = await checkDatabaseHealth(config);
+      if (dbHealth.healthy) {
+        spinner.succeed(chalk.green(`✅ PostgreSQL connection successful (${dbHealth.responseTime}ms)`));
+      } else {
+        throw new Error(dbHealth.error);
+      }
     } catch (error) {
-      checks.wrangler = false;
-    }
-    
-    // Check .env file
-    checks.env = process.env.CLOUDFLARE_WORKER_URL && 
-                 process.env.SUPABASE_URL && 
-                 process.env.SUPABASE_SERVICE_KEY;
-    
-    const allPassed = Object.values(checks).every(check => check);
-    
-    if (allPassed) {
-      spinner.succeed(chalk.green('All prerequisites met'));
-    } else {
-      spinner.fail(chalk.red('Some prerequisites are missing'));
+      spinner.fail(chalk.red('❌ PostgreSQL connection failed'));
+      console.error(chalk.red('Error:'), error.message);
       
-      console.log(chalk.yellow('\n⚠️  Prerequisites Status:'));
-      console.log(chalk[checks.node ? 'green' : 'red'](`   ${checks.node ? '✓' : '✗'} Node.js >= 16 (current: ${nodeVersion})`));
-      console.log(chalk[checks.npm ? 'green' : 'red'](`   ${checks.npm ? '✓' : '✗'} npm`));
-      console.log(chalk[checks.wrangler ? 'green' : 'red'](`   ${checks.wrangler ? '✓' : '✗'} Wrangler CLI`));
-      console.log(chalk[checks.env ? 'green' : 'red'](`   ${checks.env ? '✓' : '✗'} Environment configuration (.env file)`));
+      console.log(chalk.yellow('\n💡 Troubleshooting tips:'));
+      console.log(chalk.yellow('1. Make sure PostgreSQL is running'));
+      console.log(chalk.yellow('2. Check your database connection settings in .env'));
+      console.log(chalk.yellow('3. Verify the database user has proper permissions'));
+      console.log(chalk.yellow(`4. Try: psql -h ${config.database.host} -p ${config.database.port} -U ${config.database.user} -d postgres`));
       
-      if (!checks.env) {
-        console.log(chalk.yellow('\n📝 Missing environment variables. Please ensure your .env file contains:'));
-        console.log(chalk.gray('   - CLOUDFLARE_WORKER_URL'));
-        console.log(chalk.gray('   - SUPABASE_URL'));
-        console.log(chalk.gray('   - SUPABASE_SERVICE_KEY'));
-        console.log(chalk.gray('   - GITHUB_TOKEN (optional)'));
-        console.log(chalk.gray('   - LINEAR_API_KEY (optional)'));
-        console.log(chalk.gray('   - SLACK_BOT_TOKEN (optional)'));
+      const shouldContinue = await askYesNo('\nWould you like to continue anyway? (y/N)');
+      if (!shouldContinue) {
+        process.exit(1);
       }
     }
     
-    return allPassed;
-  } catch (error) {
-    spinner.fail(chalk.red(`Prerequisites check failed: ${error.message}`));
-    return false;
-  }
-}
-
-async function runSetup() {
-  console.log(chalk.blue('🔧 Running webhook gateway setup...'));
-  
-  try {
-    const setupResult = await setupWebhookGateway();
+    // Step 3: Initialize database schema
+    spinner = ora('Initializing database schema...').start();
     
-    if (setupResult.success) {
-      console.log(chalk.green('✅ Setup completed successfully!'));
-      return true;
-    } else {
-      console.log(chalk.yellow('⚠️  Setup completed with some issues'));
-      console.log(chalk.gray('Check the setup summary above for details'));
-      return setupResult.configured_services > 0; // Allow partial success
+    try {
+      await initDatabase(config);
+      spinner.succeed(chalk.green('✅ Database schema initialized'));
+    } catch (error) {
+      spinner.fail(chalk.red('❌ Database schema initialization failed'));
+      console.error(chalk.red('Error:'), error.message);
+      
+      const shouldContinue = await askYesNo('\nWould you like to continue anyway? (y/N)');
+      if (!shouldContinue) {
+        process.exit(1);
+      }
     }
-  } catch (error) {
-    console.error(chalk.red('❌ Setup failed:'), error.message);
-    return false;
-  }
-}
-
-async function runTests() {
-  const spinner = ora('Running webhook tests...').start();
-  
-  try {
-    // Import test script dynamically
-    const { testWebhooks } = await import('./test-webhook.js');
-    const testResults = await testWebhooks();
     
-    if (testResults.success) {
-      spinner.succeed(chalk.green('All webhook tests passed'));
-      return true;
-    } else {
-      spinner.warn(chalk.yellow(`Some tests failed (${testResults.passed}/${testResults.total} passed)`));
-      return testResults.passed > 0; // Allow partial success
+    // Step 4: Install dependencies if needed
+    spinner = ora('Checking dependencies...').start();
+    
+    try {
+      await checkDependencies();
+      spinner.succeed(chalk.green('✅ Dependencies are up to date'));
+    } catch (error) {
+      spinner.warn(chalk.yellow('⚠️  Some dependencies may be missing'));
+      console.log(chalk.yellow('Running npm install...'));
+      
+      await runCommand('npm', ['install']);
+      console.log(chalk.green('✅ Dependencies installed'));
     }
+    
+    // Step 5: Run basic tests
+    spinner = ora('Running basic health tests...').start();
+    
+    try {
+      // Start server in background for testing
+      const serverProcess = spawn('node', ['src/server.js'], {
+        stdio: 'pipe',
+        env: { ...process.env, NODE_ENV: 'test' }
+      });
+      
+      // Wait for server to start
+      await new Promise(resolve => setTimeout(resolve, 3000));
+      
+      // Run tests
+      const testSuite = createWebhookTests(`http://${config.host}:${config.port}`, config);
+      const testResults = await testSuite.runAllTests();
+      
+      // Stop server
+      serverProcess.kill();
+      
+      if (testResults.summary.passRate === 100) {
+        spinner.succeed(chalk.green(`✅ All tests passed (${testResults.summary.passed}/${testResults.summary.total})`));
+      } else {
+        spinner.warn(chalk.yellow(`⚠️  Some tests failed (${testResults.summary.passed}/${testResults.summary.total} passed)`));
+      }
+    } catch (error) {
+      spinner.warn(chalk.yellow('⚠️  Could not run health tests'));
+      console.log(chalk.gray('This is normal if the server is not yet running.'));
+    }
+    
+    // Step 6: Setup complete
+    console.log(chalk.green.bold('\n🎉 Development setup completed successfully!'));
+    console.log(chalk.green('==========================================\n'));
+    
+    console.log(chalk.blue('📋 Next Steps:'));
+    console.log(chalk.blue('1. Start the development server: npm run dev:start'));
+    console.log(chalk.blue('2. Check health status: curl http://localhost:3000/health'));
+    console.log(chalk.blue('3. View metrics: curl http://localhost:3000/metrics'));
+    console.log(chalk.blue('4. Test webhooks: npm run webhook:test'));
+    
+    console.log(chalk.blue('\n🔗 Webhook Endpoints:'));
+    console.log(chalk.blue(`• GitHub: http://${config.host}:${config.port}/webhook/github`));
+    console.log(chalk.blue(`• Linear: http://${config.host}:${config.port}/webhook/linear`));
+    console.log(chalk.blue(`• Slack: http://${config.host}:${config.port}/webhook/slack`));
+    
+    console.log(chalk.blue('\n📊 Monitoring:'));
+    console.log(chalk.blue(`• Health: http://${config.host}:${config.port}/health`));
+    console.log(chalk.blue(`• Metrics: http://${config.host}:${config.port}/metrics`));
+    
+    if (config.debug) {
+      console.log(chalk.yellow('\n🔍 Debug mode is enabled - you will see detailed logs'));
+    }
+    
+    // Ask if user wants to start the server
+    const shouldStart = await askYesNo('\nWould you like to start the development server now? (Y/n)');
+    if (shouldStart) {
+      console.log(chalk.blue('\n🚀 Starting development server...\n'));
+      
+      // Start the server
+      const serverProcess = spawn('npm', ['run', 'dev:start'], {
+        stdio: 'inherit'
+      });
+      
+      // Handle process termination
+      process.on('SIGINT', () => {
+        console.log(chalk.yellow('\n🛑 Shutting down development server...'));
+        serverProcess.kill();
+        process.exit(0);
+      });
+      
+      process.on('SIGTERM', () => {
+        serverProcess.kill();
+        process.exit(0);
+      });
+    }
+    
   } catch (error) {
-    spinner.fail(chalk.red(`Tests failed: ${error.message}`));
-    return false;
+    if (spinner) {
+      spinner.fail(chalk.red('❌ Development setup failed'));
+    }
+    console.error(chalk.red('Error:'), error.message);
+    process.exit(1);
   }
 }
 
-async function startDevelopmentServer() {
-  console.log(chalk.blue('\n🚀 Starting Cloudflare Worker development server...'));
-  console.log(chalk.gray('Press Ctrl+C to stop the server\n'));
-  
+// Check if dependencies are installed
+async function checkDependencies() {
   return new Promise((resolve, reject) => {
-    const wrangler = spawn('npx', ['wrangler', 'dev', '--local', '--persist-to', '.wrangler/state'], {
-      stdio: 'inherit',
-      cwd: rootDir
+    const child = spawn('npm', ['list', '--depth=0'], { stdio: 'pipe' });
+    
+    child.on('close', (code) => {
+      if (code === 0) {
+        resolve();
+      } else {
+        reject(new Error('Dependencies check failed'));
+      }
     });
     
-    wrangler.on('error', (error) => {
-      console.error(chalk.red('Failed to start development server:'), error.message);
+    child.on('error', (error) => {
       reject(error);
     });
+  });
+}
+
+// Run a command and return a promise
+function runCommand(command, args, options = {}) {
+  return new Promise((resolve, reject) => {
+    const child = spawn(command, args, {
+      stdio: 'inherit',
+      ...options
+    });
     
-    wrangler.on('exit', (code) => {
+    child.on('close', (code) => {
       if (code === 0) {
-        console.log(chalk.green('\n✅ Development server stopped gracefully'));
+        resolve();
       } else {
-        console.log(chalk.red(`\n❌ Development server exited with code ${code}`));
+        reject(new Error(`Command failed with exit code ${code}`));
       }
-      resolve(code);
     });
     
-    // Handle Ctrl+C gracefully
-    process.on('SIGINT', () => {
-      console.log(chalk.yellow('\n⏹️  Stopping development server...'));
-      wrangler.kill('SIGINT');
-    });
-    
-    process.on('SIGTERM', () => {
-      console.log(chalk.yellow('\n⏹️  Stopping development server...'));
-      wrangler.kill('SIGTERM');
+    child.on('error', (error) => {
+      reject(error);
     });
   });
 }
 
-async function displayQuickStart() {
-  console.log(chalk.blue('\n📚 Quick Start Guide'));
-  console.log(chalk.blue('==================\n'));
-  
-  console.log(chalk.green('🎉 Your webhook gateway is now running!'));
-  console.log(chalk.gray(`🌐 Worker URL: ${process.env.CLOUDFLARE_WORKER_URL}`));
-  console.log(chalk.gray('📊 Health Check: /health'));
-  console.log(chalk.gray('📈 Metrics: /metrics'));
-  
-  console.log(chalk.blue('\n🔗 Webhook Endpoints:'));
-  console.log(chalk.gray(`   GitHub:  ${process.env.CLOUDFLARE_WORKER_URL}/webhook/github`));
-  console.log(chalk.gray(`   Linear:  ${process.env.CLOUDFLARE_WORKER_URL}/webhook/linear`));
-  console.log(chalk.gray(`   Slack:   ${process.env.CLOUDFLARE_WORKER_URL}/webhook/slack`));
-  
-  console.log(chalk.blue('\n🛠️  Available Commands:'));
-  console.log(chalk.gray('   npm run webhook:test     - Test all webhooks'));
-  console.log(chalk.gray('   npm run health:check     - Check system health'));
-  console.log(chalk.gray('   npm run logs             - View worker logs'));
-  console.log(chalk.gray('   npm run metrics          - View metrics'));
-  console.log(chalk.gray('   npm run deploy           - Deploy to production'));
-  
-  console.log(chalk.blue('\n🔍 Monitoring:'));
-  console.log(chalk.gray('   - All events are automatically stored in Supabase'));
-  console.log(chalk.gray('   - Check the worker logs for real-time event processing'));
-  console.log(chalk.gray('   - Use /metrics endpoint to monitor performance'));
-  
-  if (process.env.GITHUB_TOKEN) {
-    console.log(chalk.green('\n✅ GitHub: Configured and ready'));
-  } else {
-    console.log(chalk.yellow('\n⚠️  GitHub: Add GITHUB_TOKEN to .env to enable'));
-  }
-  
-  if (process.env.LINEAR_API_KEY) {
-    console.log(chalk.green('✅ Linear: Configured and ready'));
-  } else {
-    console.log(chalk.yellow('⚠️  Linear: Add LINEAR_API_KEY to .env to enable'));
-  }
-  
-  if (process.env.SLACK_BOT_TOKEN) {
-    console.log(chalk.green('✅ Slack: Configured and ready'));
-    console.log(chalk.gray('   Note: Manual Event Subscriptions configuration may be required'));
-  } else {
-    console.log(chalk.yellow('⚠️  Slack: Add SLACK_BOT_TOKEN to .env to enable'));
-  }
-}
-
-async function main() {
-  try {
-    console.log(chalk.blue('🌟 Webhook Gateway Development Setup'));
-    console.log(chalk.blue('====================================\n'));
+// Simple yes/no prompt
+function askYesNo(question) {
+  return new Promise((resolve) => {
+    process.stdout.write(chalk.cyan(question));
     
-    // Check prerequisites
-    const prerequisitesPassed = await checkPrerequisites();
-    if (!prerequisitesPassed) {
-      console.log(chalk.red('\n❌ Prerequisites not met. Please fix the issues above and try again.'));
-      process.exit(1);
-    }
-    
-    // Run setup
-    const setupPassed = await runSetup();
-    if (!setupPassed) {
-      console.log(chalk.red('\n❌ Setup failed. Please check the errors above and try again.'));
-      process.exit(1);
-    }
-    
-    // Run tests (optional - don't fail if tests fail)
-    console.log(chalk.blue('\n🧪 Running validation tests...'));
-    await runTests();
-    
-    // Display quick start guide
-    await displayQuickStart();
-    
-    // Start development server
-    await startDevelopmentServer();
-    
-  } catch (error) {
-    console.error(chalk.red('\n💥 Fatal error:'), error.message);
-    console.error(chalk.gray(error.stack));
-    process.exit(1);
-  }
-}
-
-// Export for use by other scripts
-export { main as runDevSetup };
-
-// Run if called directly
-if (import.meta.url === `file://${process.argv[1]}`) {
-  main().catch(error => {
-    console.error(chalk.red('Fatal error:'), error);
-    process.exit(1);
+    process.stdin.once('data', (data) => {
+      const answer = data.toString().trim().toLowerCase();
+      resolve(answer === 'y' || answer === 'yes' || answer === '');
+    });
   });
 }
 
+// Handle errors
+process.on('unhandledRejection', (error) => {
+  console.error(chalk.red('Unhandled error:'), error);
+  process.exit(1);
+});
+
+// Run the setup
+runDevSetup().catch(console.error);
