@@ -283,8 +283,8 @@ async function generateRecommendations(diagnosticResults) {
     console.log(chalk.gray('   1. Monitor worker logs in real-time:'));
     console.log(chalk.gray('      npm run logs:live'));
     console.log(chalk.gray('   2. Create a test issue in Linear and watch for events'));
-    console.log(chalk.gray('   3. Check Supabase dashboard for stored events:'));
-    console.log(chalk.gray('      https://app.supabase.com/project/uedotecntvufyjrjrgbk/editor'));
+    console.log(chalk.gray('   3. Check PostgreSQL database for stored events:'));
+    console.log(chalk.gray('      psql -h localhost -U postgres -d Events -c "SELECT * FROM webhook_events WHERE source = \'linear\' ORDER BY created_at DESC LIMIT 5;"'));
     console.log(chalk.gray('   4. Verify webhook deliveries in Linear:'));
     console.log(chalk.gray('      Linear Settings → API → Webhooks → View deliveries'));
   }
@@ -352,4 +352,3 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     process.exit(1);
   });
 }
-

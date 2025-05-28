@@ -1,197 +1,193 @@
-// scripts/health-check.js
-import fetch from 'node-fetch';
-import { createClient } from '@supabase/supabase-js';
+// scripts/health-check.js - PostgreSQL Health Check
 import chalk from 'chalk';
-import ora from 'ora';
-import dotenv from 'dotenv';
-import path from 'path';
-import { fileURLToPath } from 'url';
+import { getConfig } from '../src/config.js';
+import { initDatabase, checkDatabaseHealth, getMetrics } from '../src/utils/postgresql.js';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-const rootDir = path.join(__dirname, '..');
-
-// Load environment variables
-dotenv.config({ path: path.join(rootDir, '.env') });
-
-const WORKER_URL = process.env.CLOUDFLARE_WORKER_URL || 'http://localhost:8787';
-const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
-const supabaseKey = process.env.SUPABASE_SERVICE_KEY || process.env.VITE_SUPABASE_SERVICE_ROLE;
-
-async function checkHealth() {
-  console.log(chalk.blue('🏥 Running health checks...\n'));
-
-  const checks = [
-    {
-      name: 'Worker Health',
-      check: async () => {
-        const response = await fetch(`${WORKER_URL}/health`);
-        const data = await response.json();
-        return {
-          success: response.ok && data.status === 'healthy',
-          details: data
-        };
+// Health check configuration
+const healthChecks = [
+  {
+    name: 'PostgreSQL Connection',
+    check: async () => {
+      const config = getConfig();
+      if (!config.database.host || !config.database.user || !config.database.password) {
+        throw new Error('Missing PostgreSQL configuration');
       }
-    },
-    {
-      name: 'Worker Metrics',
-      check: async () => {
-        const response = await fetch(`${WORKER_URL}/metrics`);
-        const data = await response.json();
-        return {
-          success: response.ok,
-          details: data.metrics || data
-        };
+      
+      // Initialize database if not already done
+      await initDatabase(config);
+      
+      // Check database health
+      const health = await checkDatabaseHealth(config);
+      if (!health.healthy) {
+        throw new Error(health.error || 'Database health check failed');
       }
-    },
-    {
-      name: 'Supabase Connection',
-      check: async () => {
-        if (!supabaseUrl || !supabaseKey) {
-          throw new Error('Missing Supabase configuration');
+      
+      return {
+        status: 'healthy',
+        responseTime: health.responseTime,
+        details: 'PostgreSQL connection successful'
+      };
+    }
+  },
+  {
+    name: 'Database Schema',
+    check: async () => {
+      const config = getConfig();
+      await initDatabase(config);
+      
+      // Check if main tables exist
+      const { pool } = await import('../src/utils/postgresql.js');
+      const client = await pool.connect();
+      
+      try {
+        const result = await client.query(`
+          SELECT table_name 
+          FROM information_schema.tables 
+          WHERE table_schema = 'public' 
+          AND table_name IN ('webhook_events', 'webhook_events_failed', 'webhook_event_metrics')
+        `);
+        
+        const tables = result.rows.map(row => row.table_name);
+        const requiredTables = ['webhook_events', 'webhook_events_failed', 'webhook_event_metrics'];
+        const missingTables = requiredTables.filter(table => !tables.includes(table));
+        
+        if (missingTables.length > 0) {
+          throw new Error(`Missing required tables: ${missingTables.join(', ')}`);
         }
-        const supabase = createClient(supabaseUrl, supabaseKey);
-        const { count, error } = await supabase
-          .from('webhook_events')
-          .select('*', { count: 'exact', head: true });
-        
-        if (error) throw error;
         
         return {
-          success: true,
-          details: { total_events: count }
+          status: 'healthy',
+          details: `All required tables present: ${tables.join(', ')}`
         };
-      }
-    },
-    {
-      name: 'Failed Events',
-      check: async () => {
-        const supabase = createClient(supabaseUrl, supabaseKey);
-        const { data, error } = await supabase
-          .from('webhook_events_failed')
-          .select('*', { count: 'exact' })
-          .eq('resolved', false);
-        
-        if (error) throw error;
-        
-        return {
-          success: true,
-          details: {
-            unresolved_failures: data?.length || 0,
-            requires_attention: (data?.length || 0) > 0
-          }
-        };
-      }
-    },
-    {
-      name: 'Recent Events',
-      check: async () => {
-        const supabase = createClient(supabaseUrl, supabaseKey);
-        const { data, error } = await supabase
-          .from('webhook_events')
-          .select('source, event_type, created_at')
-          .order('created_at', { ascending: false })
-          .limit(5);
-        
-        if (error) throw error;
-        
-        return {
-          success: true,
-          details: {
-            recent_events: data?.map(e => ({
-              source: e.source,
-              type: e.event_type,
-              time: new Date(e.created_at).toLocaleString()
-            }))
-          }
-        };
-      }
-    },
-    {
-      name: 'Event Metrics',
-      check: async () => {
-        const supabase = createClient(supabaseUrl, supabaseKey);
-        const today = new Date().toISOString().split('T')[0];
-        const { data, error } = await supabase
-          .from('webhook_event_metrics')
-          .select('source, event_type, count')
-          .eq('date', today)
-          .order('count', { ascending: false })
-          .limit(10);
-        
-        if (error) throw error;
-        
-        return {
-          success: true,
-          details: {
-            todays_top_events: data
-          }
-        };
+      } finally {
+        client.release();
       }
     }
-  ];
-
-  const results = [];
-
-  for (const check of checks) {
-    const spinner = ora(check.name).start();
-    
-    try {
-      const result = await check.check();
-      spinner.succeed(chalk.green(`✓ ${check.name}`));
-      results.push({
-        name: check.name,
-        success: result.success,
-        details: result.details
+  },
+  {
+    name: 'Database Metrics',
+    check: async () => {
+      const config = getConfig();
+      const metrics = await getMetrics(config);
+      
+      return {
+        status: 'healthy',
+        details: `Total events: ${metrics.overall.total_events || 0}, Sources: ${metrics.overall.unique_sources || 0}`
+      };
+    }
+  },
+  {
+    name: 'Environment Variables',
+    check: async () => {
+      const config = getConfig();
+      const required = [
+        'database.host',
+        'database.port', 
+        'database.name',
+        'database.user',
+        'database.password'
+      ];
+      
+      const missing = required.filter(key => {
+        const value = key.split('.').reduce((obj, k) => obj?.[k], config);
+        return !value;
       });
       
-      if (result.details) {
-        console.log(chalk.gray(JSON.stringify(result.details, null, 2)));
+      if (missing.length > 0) {
+        throw new Error(`Missing required environment variables: ${missing.join(', ')}`);
       }
-      console.log();
-    } catch (error) {
-      spinner.fail(chalk.red(`✗ ${check.name}`));
-      console.log(chalk.red(`  Error: ${error.message}\n`));
+      
+      return {
+        status: 'healthy',
+        details: 'All required environment variables present'
+      };
+    }
+  }
+];
+
+// Run health checks
+async function runHealthChecks() {
+  console.log(chalk.blue('🏥 Running Health Checks...\\n'));
+  
+  let allPassed = true;
+  const results = [];
+  
+  for (const healthCheck of healthChecks) {
+    try {
+      console.log(chalk.gray(`Checking ${healthCheck.name}...`));
+      const result = await healthCheck.check();
+      
+      console.log(chalk.green(`✅ ${healthCheck.name}: ${result.details || 'OK'}`));
+      if (result.responseTime) {
+        console.log(chalk.gray(`   Response time: ${result.responseTime}ms`));
+      }
+      
       results.push({
-        name: check.name,
-        success: false,
+        name: healthCheck.name,
+        status: 'passed',
+        details: result.details,
+        responseTime: result.responseTime
+      });
+    } catch (error) {
+      console.log(chalk.red(`❌ ${healthCheck.name}: ${error.message}`));
+      allPassed = false;
+      
+      results.push({
+        name: healthCheck.name,
+        status: 'failed',
         error: error.message
       });
     }
   }
-
-  // Summary
-  const successCount = results.filter(r => r.success).length;
-  const failureCount = results.length - successCount;
-
-  console.log(chalk.blue('📊 Health Check Summary:'));
-  console.log(chalk.green(`   ✓ Passed: ${successCount}`));
-  if (failureCount > 0) {
-    console.log(chalk.red(`   ✗ Failed: ${failureCount}`));
-  }
-
-  // Overall status
-  const allHealthy = failureCount === 0;
-  console.log(chalk.blue('\n🎯 Overall Status:'), allHealthy ? chalk.green('HEALTHY') : chalk.red('UNHEALTHY'));
-
-  // Recommendations
-  if (!allHealthy) {
-    console.log(chalk.yellow('\n💡 Recommendations:'));
-    results.filter(r => !r.success).forEach(r => {
-      if (r.name === 'Worker Health' || r.name === 'Worker Metrics') {
-        console.log(chalk.yellow('   - Make sure the worker is running: npm run dev'));
-      } else if (r.name === 'Supabase Connection') {
-        console.log(chalk.yellow('   - Check your Supabase credentials in .env'));
-        console.log(chalk.yellow('   - Ensure the database schema is set up: npm run setup:db'));
+  
+  console.log('\\n' + chalk.blue('📊 Health Check Summary'));
+  console.log('========================');
+  
+  const passed = results.filter(r => r.status === 'passed').length;
+  const failed = results.filter(r => r.status === 'failed').length;
+  
+  console.log(chalk.green(`✅ Passed: ${passed}`));
+  console.log(chalk.red(`❌ Failed: ${failed}`));
+  
+  if (allPassed) {
+    console.log('\\n' + chalk.green('🎉 All health checks passed! System is healthy.'));
+  } else {
+    console.log('\\n' + chalk.red('⚠️  Some health checks failed. Please review the issues above.'));
+    
+    // Provide troubleshooting tips
+    console.log('\\n' + chalk.yellow('💡 Troubleshooting Tips:'));
+    
+    for (const result of results) {
+      if (result.status === 'failed') {
+        if (result.name === 'PostgreSQL Connection') {
+          console.log(chalk.yellow('   - Check your PostgreSQL credentials in .env'));
+          console.log(chalk.yellow('   - Ensure PostgreSQL server is running'));
+          console.log(chalk.yellow('   - Verify database "Events" exists'));
+        } else if (result.name === 'Database Schema') {
+          console.log(chalk.yellow('   - Run database initialization: npm run setup:db'));
+          console.log(chalk.yellow('   - Check PostgreSQL logs for schema creation errors'));
+        } else if (result.name === 'Environment Variables') {
+          console.log(chalk.yellow('   - Review your .env file configuration'));
+          console.log(chalk.yellow('   - Ensure all required PostgreSQL variables are set'));
+        }
       }
-    });
+    }
   }
-
-  process.exit(allHealthy ? 0 : 1);
+  
+  return allPassed;
 }
 
-// Run health check
-checkHealth().catch(error => {
-  console.error(chalk.red('❌ Health check failed:'), error);
-  process.exit(1);
-});
+// Main execution
+if (import.meta.url === `file://${process.argv[1]}`) {
+  runHealthChecks()
+    .then(success => {
+      process.exit(success ? 0 : 1);
+    })
+    .catch(error => {
+      console.error(chalk.red('Health check failed:'), error.message);
+      process.exit(1);
+    });
+}
+
+export { runHealthChecks };
+
