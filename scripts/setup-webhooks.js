@@ -270,7 +270,8 @@ function displayResults(results, platforms) {
     console.log(chalk.green('🎉 All webhooks configured successfully!'));
     console.log(chalk.blue('\n📝 Next steps:'));
     console.log(chalk.gray('1. Test your webhooks by creating events in each platform'));
-    console.log(chalk.gray('2. Monitor webhook events in your Supabase dashboard'));
+    console.log(chalk.gray('2. Monitor webhook events in your PostgreSQL database:'));
+    console.log(chalk.gray('   psql -h localhost -U postgres -d Events -c "SELECT source, event_type, created_at FROM webhook_events ORDER BY created_at DESC LIMIT 10;"'));
     console.log(chalk.gray('3. Check worker logs for any processing issues'));
   } else {
     console.log(chalk.yellow('⚠️  Some webhooks failed to configure.'));

@@ -94,7 +94,7 @@
     "github",
     "linear",
     "slack",
-    "supabase",
+    "postgresql",
     "event-processing",
     "batch-processing",
     "rate-limiting"

@@ -31,8 +31,6 @@ export function getConfig(env = process.env) {
     },
     
     // Legacy Supabase configuration (for migration compatibility)
-    supabaseUrl: env.SUPABASE_URL,
-    supabaseKey: env.SUPABASE_SERVICE_KEY,
     
     // Webhook secrets
     githubWebhookSecret: env.GITHUB_WEBHOOK_SECRET,
