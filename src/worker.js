@@ -1,10 +1,10 @@
 // src/worker.js - Enhanced with Debug Logging
 import { Router } from 'itty-router';
 import { getConfig, validateConfig } from './config.js';
-import { initSupabase, storeEvent, storeBatchEvents } from './utils/supabase.js';
-import { handleGitHubEvent } from './handlers/github.js';
-import { handleLinearEvent } from './handlers/linear.js';
-import { handleSlackEvent } from './handlers/slack.js';
+import { initPostgreSQL, storeEvent, storeBatchEvents } from './utils/postgresql.js';
+import { handleGitHubWebhook } from './handlers/github.js';
+import { handleLinearWebhook } from './handlers/linear.js';
+import { handleSlackWebhook } from './handlers/slack.js';
 
 // Create router instance
 const router = Router();
@@ -21,7 +21,7 @@ async function initialize(env) {
   if (!isInitialized) {
     config = getConfig(env);
     validateConfig(config);
-    initSupabase(config);
+    initPostgreSQL(config);
     isInitialized = true;
   }
   return config;
@@ -110,7 +110,7 @@ router.post('/webhook/github', async (request, env) => {
       repository: payload.repository?.full_name
     });
     
-    const result = await handleGitHubEvent(rawBody, payload, headers, config);
+    const result = await handleGitHubWebhook(rawBody, payload, headers, config);
     
     if (!result.isValid) {
       debugLog('warn', 'GitHub signature validation failed', result.error);
@@ -169,7 +169,7 @@ router.post('/webhook/linear', async (request, env) => {
       dataIdentifier: payload.data?.identifier
     });
     
-    const result = await handleLinearEvent(rawBody, payload, headers, config);
+    const result = await handleLinearWebhook(rawBody, payload, headers, config);
     
     if (!result.isValid) {
       debugLog('warn', 'Linear signature validation failed', result.error);
@@ -228,7 +228,7 @@ router.post('/webhook/slack', async (request, env) => {
       user: payload.event?.user || payload.user_id
     });
     
-    const result = await handleSlackEvent(rawBody, payload, headers, config);
+    const result = await handleSlackWebhook(rawBody, payload, headers, config);
     
     if (!result.isValid) {
       debugLog('warn', 'Slack signature validation failed', result.error);
