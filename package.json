@@ -6,17 +6,12 @@
   "type": "module",
   "scripts": {
     "start": "node src/server.js",
-    "dev": "node scripts/interactive-dev-setup.js",
-    "dev:simple": "node scripts/simple-dev-setup.js",
+    "dev": "node scripts/comprehensive-dev-setup.js",
     "setup:env": "node scripts/setup-env.js",
     "setup:db": "node scripts/setup-database.js",
     "setup:webhooks": "node scripts/setup-webhooks.js",
     "health:check": "node scripts/health-check.js",
     "diagnose:linear": "node scripts/diagnose-linear.js",
-    "validate:system": "node scripts/system-validator.js",
-    "fix:auto": "node scripts/auto-fix.js",
-    "fix:interactive": "node scripts/auto-fix.js interactive",
-    "fix:port": "node scripts/quick-fix-port.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "dependencies": {

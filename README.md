@@ -17,34 +17,25 @@ A comprehensive webhook gateway built with Express.js that automatically capture
 
 ### One-Command Setup
 
-**Get started in seconds with our interactive setup:**
+**Get started with our comprehensive development setup:**
 
 ```bash
 npm run dev
 ```
 
-This single command will:
-- ✅ **Validate your system** and check prerequisites
-- ✅ **Install dependencies** automatically if missing
-- ✅ **Guide you through configuration** with interactive prompts
-- ✅ **Detect and configure PostgreSQL** automatically
-- ✅ **Create the database** and schema if needed
-- ✅ **Fix common issues** automatically
-- ✅ **Run health checks** to ensure everything works
-- ✅ **Start the development server** when ready
+This **single command** will:
+- 🔍 **Validate your entire system** - Node.js, npm, PostgreSQL, dependencies
+- 📦 **Install missing dependencies** automatically
+- ⚙️ **Interactive configuration** - Prompts for missing .env values with validation
+- 🐘 **Detect and configure PostgreSQL** - Auto-detects port, creates database
+- 🔧 **Apply automatic fixes** - Port configuration, SSL settings, debug mode
+- 🗄️ **Setup database schema** - Creates tables and indexes
+- 🏥 **Run comprehensive health checks** - Validates all components
+- 🚀 **Start the development server** - Ready to receive webhooks
+- 📊 **Detailed logging** - Shows exactly what's happening at each step
+- 🛠️ **Issue resolution** - Provides specific guidance for any problems
 
-**Alternative setup options:**
-
-```bash
-# Simple setup (minimal configuration)
-npm run dev:simple
-
-# Quick port fix (if database connection fails)
-npm run fix:port
-
-# System validation only
-npm run validate:system
-```
+**No other commands needed!** This replaces all previous setup scripts with one comprehensive solution.
 
 ### Prerequisites
 
