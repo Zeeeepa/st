@@ -15,13 +15,33 @@ A comprehensive webhook gateway built with Express.js that automatically capture
 
 ## 🚀 Quick Start
 
+### One-Command Setup
+
+**Get started in seconds with our interactive setup:**
+
+```bash
+npm run dev
+```
+
+This single command will:
+- ✅ **Validate your system** and check prerequisites
+- ✅ **Install dependencies** automatically if missing
+- ✅ **Guide you through configuration** with interactive prompts
+- ✅ **Detect and configure PostgreSQL** automatically
+- ✅ **Create the database** and schema if needed
+- ✅ **Fix common issues** automatically
+- ✅ **Run health checks** to ensure everything works
+- ✅ **Start the development server** when ready
+
 ### Prerequisites
 
 - **Node.js** (v16 or higher)
 - **PostgreSQL** (v12 or higher)
 - **npm** or **yarn**
 
-### Installation
+### Manual Installation
+
+If you prefer manual setup:
 
 1. **Clone the repository**
    ```bash
@@ -146,13 +166,24 @@ Once running, your webhook endpoints will be:
 
 | Script | Description |
 |--------|-------------|
-| `npm start` | Start the webhook gateway |
-| `npm run dev` | Start in development mode |
-| `npm run setup:env` | Create .env file |
-| `npm run setup:db` | Initialize database |
-| `npm run health:check` | Run health checks |
-| `npm run test` | Run comprehensive tests |
-| `npm run metrics` | View current metrics |
+| `npm run dev` | **🌟 Interactive development setup** - Complete guided setup |
+| `npm start` | Start the webhook gateway server |
+| `npm run dev:simple` | Start server without setup (requires manual configuration) |
+| `npm run setup:env` | Create .env file with default configuration |
+| `npm run setup:db` | Initialize PostgreSQL database and schema |
+| `npm run setup:webhooks` | Configure webhooks for GitHub, Linear, and Slack |
+| `npm run health:check` | Run comprehensive health checks |
+| `npm run validate:system` | Validate system requirements and configuration |
+| `npm run fix:auto` | Automatically fix common issues |
+| `npm run fix:interactive` | Interactive issue fixing with options |
+| `npm run diagnose:linear` | Diagnose Linear webhook configuration |
+
+### Development Workflow
+
+1. **First time setup**: `npm run dev`
+2. **Daily development**: `npm start` or `npm run dev:simple`
+3. **Troubleshooting**: `npm run validate:system` then `npm run fix:auto`
+4. **Health monitoring**: `npm run health:check`
 
 ## 🔍 Monitoring & Debugging
 
@@ -246,4 +277,3 @@ MIT License - see LICENSE file for details
 ---
 
 **🎉 Happy webhook capturing!** Your events are now flowing automatically from GitHub, Linear, and Slack into your local PostgreSQL database with enterprise-grade reliability and performance.
-
