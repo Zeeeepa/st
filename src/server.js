@@ -7,6 +7,7 @@ import rateLimit from 'express-rate-limit';
 import { body, validationResult } from 'express-validator';
 import morgan from 'morgan';
 import { v4 as uuidv4 } from 'uuid';
+import net from 'net';
 
 import { getConfig, validateConfig, printConfigSummary } from './config.js';
 import { initDatabase, checkDatabaseHealth, storeEvent, storeBatchEvents, getMetrics } from './utils/postgresql.js';
@@ -71,6 +72,34 @@ async function initialize() {
     }
   }
   return config;
+}
+
+// Function to find an available port
+async function findAvailablePort(startPort = 3000, maxPort = 3010) {
+  for (let port = startPort; port <= maxPort; port++) {
+    if (await isPortAvailable(port)) {
+      return port;
+    }
+  }
+  throw new Error(`No available ports found between ${startPort} and ${maxPort}`);
+}
+
+// Check if a port is available
+function isPortAvailable(port) {
+  return new Promise((resolve) => {
+    const server = net.createServer();
+    
+    server.listen(port, () => {
+      server.once('close', () => {
+        resolve(true);
+      });
+      server.close();
+    });
+    
+    server.on('error', () => {
+      resolve(false);
+    });
+  });
 }
 
 // Request ID middleware
@@ -602,10 +631,17 @@ async function startServer() {
   try {
     await initialize();
     
-    const port = config.port || 3000;
+    const configPort = config.port || 3000;
     const host = config.host || 'localhost';
     
-    app.listen(port, host, () => {
+    // Find an available port starting from the configured port
+    const port = await findAvailablePort(configPort, configPort + 10);
+    
+    if (port !== configPort) {
+      debugLog('info', `⚠️ Port ${configPort} is in use, using port ${port} instead`);
+    }
+    
+    const server = app.listen(port, host, () => {
       debugLog('info', `🚀 Webhook Gateway v3.0 started successfully`);
       debugLog('info', `📡 Server running on http://${host}:${port}`);
       debugLog('info', `🔗 GitHub webhooks: http://${host}:${port}/webhook/github`);
@@ -616,6 +652,24 @@ async function startServer() {
       debugLog('info', `🌍 Environment: ${config.nodeEnv}`);
       debugLog('info', `🗄️  Database: ${config.database.host}:${config.database.port}/${config.database.name}`);
     });
+
+    // Handle graceful shutdown
+    process.on('SIGTERM', () => {
+      debugLog('info', '🛑 SIGTERM received, shutting down gracefully');
+      server.close(() => {
+        debugLog('info', '✅ Server closed');
+        process.exit(0);
+      });
+    });
+
+    process.on('SIGINT', () => {
+      debugLog('info', '🛑 SIGINT received, shutting down gracefully');
+      server.close(() => {
+        debugLog('info', '✅ Server closed');
+        process.exit(0);
+      });
+    });
+
   } catch (error) {
     debugLog('error', 'Failed to start server', error.message);
     process.exit(1);
@@ -628,4 +682,3 @@ if (import.meta.url === `file://${process.argv[1]}`) {
 }
 
 export default app;
-
