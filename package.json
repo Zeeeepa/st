@@ -15,6 +15,7 @@
     "setup:fresh": "node scripts/fresh-postgres-setup.js",
     "start:simple": "node scripts/simple-start.js",
     "start:enhanced": "node scripts/enhanced-start.js",
+    "deploy:cloudflare": "node scripts/cloudflare-deploy-and-configure.js",
     "setup:db": "node scripts/setup-database.js",
     "setup:db:interactive": "node scripts/interactive-database-setup.js",
     "setup:db:fix": "node scripts/fix-database-auth.js",
