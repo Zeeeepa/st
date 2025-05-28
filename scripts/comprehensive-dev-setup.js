@@ -788,6 +788,11 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   setup.run().catch(error => {
     console.error('Setup failed:', error);
     process.exit(1);
+  }).finally(() => {
+    // Ensure the process exits after completion
+    setTimeout(() => {
+      process.exit(0);
+    }, 1000);
   });
 }
 

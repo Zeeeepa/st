@@ -7,6 +7,9 @@
   "scripts": {
     "start": "node src/server.js",
     "dev": "node scripts/comprehensive-dev-setup.js",
+    "dev:force": "node scripts/force-run-comprehensive.js",
+    "dev:bulletproof": "node scripts/bulletproof-dev-setup.js",
+    "dev:diagnostic": "node scripts/simple-diagnostic.js",
     "setup:db": "node scripts/setup-database.js",
     "setup:webhooks": "node scripts/setup-webhooks.js",
     "health:check": "node scripts/health-check.js",
