@@ -2,10 +2,11 @@
   "name": "webhook-gateway-enhanced",
   "version": "3.0.0",
   "description": "Enhanced Local Webhook Gateway v3.0 to capture and store webhook events from GitHub, Linear, and Slack in PostgreSQL",
-  "main": "src/server.js",
+  "main": "src/enhanced-server.js",
   "type": "module",
   "scripts": {
-    "start": "node src/server.js",
+    "start": "node src/enhanced-server.js",
+    "start:original": "node src/server.js",
     "test": "echo \"Error: no test specified\" && exit 1",
     "dev": "node scripts/enhanced-ultra-deployment.js",
     "dev:simple": "node scripts/simple-dev-setup.js",
@@ -21,7 +22,16 @@
     "setup:db:fix": "node scripts/fix-database-auth.js",
     "setup:webhooks": "node scripts/setup-webhooks.js",
     "health:check": "node scripts/health-check.js",
-    "diagnose:linear": "node scripts/diagnose-linear.js"
+    "diagnose:linear": "node scripts/diagnose-linear.js",
+    "setup:postgres-tunnel": "chmod +x postgres-tunnel/scripts/*.sh && ./postgres-tunnel/scripts/setup-postgres-tunnel.sh",
+    "tunnel:start": "chmod +x postgres-tunnel/scripts/*.sh && ./postgres-tunnel/scripts/start-tunnel.sh",
+    "tunnel:service": "chmod +x postgres-tunnel/scripts/*.sh && ./postgres-tunnel/scripts/start-tunnel.sh service",
+    "tunnel:status": "chmod +x postgres-tunnel/scripts/*.sh && ./postgres-tunnel/scripts/start-tunnel.sh status",
+    "tunnel:stop": "chmod +x postgres-tunnel/scripts/*.sh && ./postgres-tunnel/scripts/start-tunnel.sh stop",
+    "tunnel:test": "chmod +x postgres-tunnel/scripts/*.sh && ./postgres-tunnel/scripts/test-connection.sh",
+    "enhanced:start": "node src/enhanced-server.js",
+    "enhanced:dev": "NODE_ENV=development node src/enhanced-server.js",
+    "setup:enhanced-system": "node scripts/setup-enhanced-event-system.js"
   },
   "dependencies": {
     "express": "^4.18.2",
@@ -33,7 +43,8 @@
     "express-validator": "^7.0.1",
     "morgan": "^1.10.0",
     "uuid": "^9.0.1",
-    "dotenv": "^16.3.1"
+    "dotenv": "^16.3.1",
+    "node-fetch": "^3.3.2"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20240117.0",
@@ -46,7 +57,6 @@
     "eslint-plugin-import": "^2.29.1",
     "inquirer": "^9.2.12",
     "miniflare": "^3.20240129.0",
-    "node-fetch": "^3.3.2",
     "ora": "^8.0.1",
     "prettier": "^3.2.4",
     "rimraf": "^5.0.5",
